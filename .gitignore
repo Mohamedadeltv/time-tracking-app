@@ -1,0 +1,43 @@
+# ---- Java / Maven (backend) ----
+target/
+*.class
+
+# ---- Node / Vite / React (frontend) ----
+node_modules/
+dist/
+build/
+.vite/
+*.local
+
+# ---- Test coverage reports ----
+coverage/
+*.lcov
+
+# ---- Playwright (system/E2E tests) ----
+playwright-report/
+test-results/
+/playwright/.cache/
+
+# ---- Local database files ----
+data/
+*.db
+*.mv.db
+*.trace.db
+
+# ---- Environment / secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- IDE / editor ----
+.idea/
+*.iml
+.vscode/
+
+# ---- macOS / OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+logs/
