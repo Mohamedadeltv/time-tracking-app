@@ -5,7 +5,7 @@ export default defineConfig({
   workers: 1,
   retries: 1,
   expect: { timeout: 10_000 },
-  reporter: 'list',
+  reporter: process.env.CI ? 'html' : 'list',
   use: {
     baseURL: process.env.BASE_URL ?? 'http://localhost:8080',
     trace: 'retain-on-failure',
