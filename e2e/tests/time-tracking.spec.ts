@@ -19,11 +19,11 @@ test('starting a task persists across a page reload, and it can be stopped', asy
   await page.getByLabel('What are you working on?').fill('Writing the report')
   await page.getByRole('button', { name: 'Start' }).click()
 
-  await expect(page.getByText('Writing the report')).toBeVisible()
+  await expect(page.getByText('Tracking: Writing the report')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible()
 
   await page.reload()
-  await expect(page.getByText('Writing the report')).toBeVisible()
+  await expect(page.getByText('Tracking: Writing the report')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Stop' }).click()
@@ -38,6 +38,6 @@ test('a task can be started without a description', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Start' }).click()
 
-  await expect(page.getByText('Untitled task')).toBeVisible()
+  await expect(page.getByText('Tracking: Untitled task')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Stop' })).toBeVisible()
 })

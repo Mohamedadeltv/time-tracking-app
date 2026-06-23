@@ -81,4 +81,72 @@ describe('tasks api', () => {
 
     expect(task).toBeUndefined()
   })
+
+  it('listTasks fetches /api/tasks', async () => {
+    mockFetchOnce(200, [
+      { id: 1, description: 'A', startTime: '2026-01-01T00:00:00Z', endTime: null, running: true },
+    ])
+
+    const tasks = await tasksApi.listTasks()
+
+    expect(tasks).toHaveLength(1)
+    const [path, init] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks')
+    expect(init?.method).toBe('GET')
+  })
+
+  it('createTask posts the explicit times to /api/tasks', async () => {
+    mockFetchOnce(201, {
+      id: 1,
+      description: 'Backfilled',
+      startTime: '2026-01-01T00:00:00Z',
+      endTime: '2026-01-01T01:00:00Z',
+      running: false,
+    })
+
+    await tasksApi.createTask({
+      description: 'Backfilled',
+      startTime: '2026-01-01T00:00:00Z',
+      endTime: '2026-01-01T01:00:00Z',
+    })
+
+    const [path, init] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks')
+    expect(init?.method).toBe('POST')
+    expect(JSON.parse(init?.body as string)).toEqual({
+      description: 'Backfilled',
+      startTime: '2026-01-01T00:00:00Z',
+      endTime: '2026-01-01T01:00:00Z',
+    })
+  })
+
+  it('updateTask puts to /api/tasks/:id', async () => {
+    mockFetchOnce(200, {
+      id: 5,
+      description: 'Corrected',
+      startTime: '2026-01-01T00:00:00Z',
+      endTime: '2026-01-01T01:00:00Z',
+      running: false,
+    })
+
+    await tasksApi.updateTask(5, {
+      description: 'Corrected',
+      startTime: '2026-01-01T00:00:00Z',
+      endTime: '2026-01-01T01:00:00Z',
+    })
+
+    const [path, init] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks/5')
+    expect(init?.method).toBe('PUT')
+  })
+
+  it('deleteTask deletes /api/tasks/:id', async () => {
+    mockFetchOnce(204)
+
+    await tasksApi.deleteTask(5)
+
+    const [path, init] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks/5')
+    expect(init?.method).toBe('DELETE')
+  })
 })

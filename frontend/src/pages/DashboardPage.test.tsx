@@ -29,12 +29,32 @@ describe('DashboardPage', () => {
     vi.resetAllMocks()
     vi.mocked(authApi.me).mockResolvedValue({ id: 1, email: 'a@example.com' })
     vi.mocked(tasksApi.getCurrentTask).mockResolvedValue(undefined)
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([])
   })
 
   it('greets the current user', async () => {
     renderDashboardPage()
 
     await waitFor(() => expect(screen.getByText('Hi, a@example.com')).toBeInTheDocument())
+  })
+
+  it('reloads the task list after starting a task', async () => {
+    vi.mocked(tasksApi.startTask).mockResolvedValue({
+      id: 1,
+      description: 'New task',
+      startTime: new Date().toISOString(),
+      endTime: null,
+      running: true,
+    })
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    await waitFor(() => expect(tasksApi.listTasks).toHaveBeenCalledTimes(1))
+
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+
+    await waitFor(() => expect(tasksApi.listTasks).toHaveBeenCalledTimes(2))
   })
 
   it('logs out and navigates to the login page', async () => {
