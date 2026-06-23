@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../api/client'
 import { TimeTracker } from '../components/TimeTracker'
+import { TaskList } from '../components/TaskList'
 
 export function DashboardPage() {
   const { user, logout, changePassword } = useAuth()
@@ -12,6 +13,7 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [taskListKey, setTaskListKey] = useState(0)
 
   async function handleLogout() {
     await logout()
@@ -37,14 +39,16 @@ export function DashboardPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center gap-8 bg-slate-50 p-8">
-      <header className="flex w-full max-w-sm items-center justify-between">
+      <header className="flex w-full max-w-2xl items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-900">Hi, {user?.email}</h1>
         <button onClick={handleLogout} className="text-sm font-medium text-slate-600 underline">
           Log out
         </button>
       </header>
 
-      <TimeTracker />
+      <TimeTracker onTaskChange={() => setTaskListKey((key) => key + 1)} />
+
+      <TaskList key={taskListKey} />
 
       <form
         onSubmit={handleChangePassword}

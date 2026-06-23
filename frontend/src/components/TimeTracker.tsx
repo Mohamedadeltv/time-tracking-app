@@ -13,7 +13,7 @@ function elapsedSecondsSince(startTime: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
 }
 
-export function TimeTracker() {
+export function TimeTracker({ onTaskChange }: { onTaskChange?: () => void } = {}) {
   const [task, setTask] = useState<Task | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [description, setDescription] = useState('')
@@ -24,6 +24,7 @@ export function TimeTracker() {
   function applyTask(next: Task | null) {
     setTask(next)
     setElapsedSeconds(next ? elapsedSecondsSince(next.startTime) : 0)
+    onTaskChange?.()
   }
 
   useEffect(() => {
