@@ -1,5 +1,10 @@
 package de.unipassau.timetracking.security;
 
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -11,9 +16,12 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -27,8 +35,8 @@ public class SecurityConfig {
   @Bean
   public AuthenticationManager authenticationManager(
       AppUserDetailsService userDetailsService, PasswordEncoder passwordEncoder) {
-    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(passwordEncoder);
-    provider.setUserDetailsService(userDetailsService);
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
+    provider.setPasswordEncoder(passwordEncoder);
     return provider::authenticate;
   }
 
@@ -41,6 +49,7 @@ public class SecurityConfig {
   public SecurityFilterChain filterChain(
       HttpSecurity http, SecurityContextRepository securityContextRepository) throws Exception {
     http.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+        .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
         .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -61,5 +70,23 @@ public class SecurityConfig {
         .httpBasic(basic -> basic.disable())
         .logout(logout -> logout.disable());
     return http.build();
+  }
+
+  /**
+   * Spring Security 6 defers CSRF token generation until something reads it. This API has no
+   * server-rendered view to do that, so without this filter the XSRF-TOKEN cookie would never get
+   * set for a pure JSON SPA client.
+   */
+  private static class CsrfCookieFilter extends OncePerRequestFilter {
+    @Override
+    protected void doFilterInternal(
+        HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+        throws ServletException, IOException {
+      CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+      if (csrfToken != null) {
+        csrfToken.getToken();
+      }
+      filterChain.doFilter(request, response);
+    }
   }
 }
