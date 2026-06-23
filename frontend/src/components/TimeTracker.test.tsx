@@ -14,6 +14,7 @@ function runningTask(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
     startTime: new Date(Date.now() - 5000).toISOString(),
     endTime: null,
     running: true,
+    projects: [],
     ...overrides,
   }
 }

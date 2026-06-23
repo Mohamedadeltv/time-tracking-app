@@ -1,12 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
-import {
-  createTask,
-  deleteTask,
-  listTasks,
-  updateTask,
-  type Task,
-} from '../api/tasks'
+import { listProjects, type Project } from '../api/projects'
+import { createTask, deleteTask, listTasks, updateTask, type Task } from '../api/tasks'
 
 function toLocalInputValue(iso: string): string {
   const date = new Date(iso)
@@ -22,8 +17,48 @@ function formatTimestamp(iso: string): string {
   return new Date(iso).toLocaleString()
 }
 
+function toggled(ids: Set<number>, id: number, checked: boolean): Set<number> {
+  const next = new Set(ids)
+  if (checked) {
+    next.add(id)
+  } else {
+    next.delete(id)
+  }
+  return next
+}
+
+function ProjectCheckboxes({
+  projects,
+  selectedIds,
+  onChange,
+}: {
+  projects: Project[]
+  selectedIds: Set<number>
+  onChange: (next: Set<number>) => void
+}) {
+  if (projects.length === 0) {
+    return null
+  }
+  return (
+    <fieldset className="flex flex-col gap-1 text-sm text-slate-700">
+      <legend>Projects</legend>
+      {projects.map((project) => (
+        <label key={project.id} className="flex items-center gap-1">
+          <input
+            type="checkbox"
+            checked={selectedIds.has(project.id)}
+            onChange={(e) => onChange(toggled(selectedIds, project.id, e.target.checked))}
+          />
+          {project.name}
+        </label>
+      ))}
+    </fieldset>
+  )
+}
+
 export function TaskList() {
   const [tasks, setTasks] = useState<Task[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -31,16 +66,21 @@ export function TaskList() {
   const [newDescription, setNewDescription] = useState('')
   const [newStart, setNewStart] = useState('')
   const [newEnd, setNewEnd] = useState('')
+  const [newProjectIds, setNewProjectIds] = useState<Set<number>>(new Set())
 
   const [editDescription, setEditDescription] = useState('')
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
+  const [editProjectIds, setEditProjectIds] = useState<Set<number>>(new Set())
 
   function load() {
     listTasks()
       .then(setTasks)
       .catch(() => setError('Could not load tasks.'))
       .finally(() => setLoading(false))
+    listProjects()
+      .then(setProjects)
+      .catch(() => setProjects([]))
   }
 
   useEffect(() => {
@@ -55,10 +95,12 @@ export function TaskList() {
         description: newDescription.trim() || undefined,
         startTime: fromLocalInputValue(newStart),
         endTime: fromLocalInputValue(newEnd),
+        projectIds: Array.from(newProjectIds),
       })
       setNewDescription('')
       setNewStart('')
       setNewEnd('')
+      setNewProjectIds(new Set())
       load()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add the task.')
@@ -71,6 +113,7 @@ export function TaskList() {
     setEditDescription(task.description ?? '')
     setEditStart(toLocalInputValue(task.startTime))
     setEditEnd(task.endTime ? toLocalInputValue(task.endTime) : '')
+    setEditProjectIds(new Set(task.projects.map((p) => p.id)))
   }
 
   async function handleUpdate(event: FormEvent, id: number) {
@@ -81,6 +124,7 @@ export function TaskList() {
         description: editDescription.trim() || undefined,
         startTime: fromLocalInputValue(editStart),
         endTime: editEnd ? fromLocalInputValue(editEnd) : null,
+        projectIds: Array.from(editProjectIds),
       })
       setEditingId(null)
       load()
@@ -138,6 +182,11 @@ export function TaskList() {
             className="rounded border border-slate-300 px-2 py-1"
           />
         </label>
+        <ProjectCheckboxes
+          projects={projects}
+          selectedIds={newProjectIds}
+          onChange={setNewProjectIds}
+        />
         <button
           type="submit"
           className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
@@ -157,6 +206,7 @@ export function TaskList() {
               <th className="py-1 pr-2">Description</th>
               <th className="py-1 pr-2">Start</th>
               <th className="py-1 pr-2">End</th>
+              <th className="py-1 pr-2">Projects</th>
               <th className="py-1 pr-2" />
             </tr>
           </thead>
@@ -164,7 +214,7 @@ export function TaskList() {
             {tasks.map((task) =>
               editingId === task.id ? (
                 <tr key={task.id} className="border-b">
-                  <td colSpan={4} className="py-2">
+                  <td colSpan={5} className="py-2">
                     <form
                       onSubmit={(e) => handleUpdate(e, task.id)}
                       className="flex flex-wrap items-end gap-2"
@@ -198,6 +248,11 @@ export function TaskList() {
                           className="rounded border border-slate-300 px-2 py-1"
                         />
                       </label>
+                      <ProjectCheckboxes
+                        projects={projects}
+                        selectedIds={editProjectIds}
+                        onChange={setEditProjectIds}
+                      />
                       <button
                         type="submit"
                         className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white"
@@ -220,6 +275,11 @@ export function TaskList() {
                   <td className="py-1 pr-2">{formatTimestamp(task.startTime)}</td>
                   <td className="py-1 pr-2">
                     {task.endTime ? formatTimestamp(task.endTime) : 'Running'}
+                  </td>
+                  <td className="py-1 pr-2">
+                    {task.projects.length > 0
+                      ? task.projects.map((p) => p.name).join(', ')
+                      : '—'}
                   </td>
                   <td className="flex gap-2 py-1 pr-2">
                     <button

@@ -1,5 +1,8 @@
 package de.unipassau.timetracking.task;
 
+import de.unipassau.timetracking.project.Project;
+import de.unipassau.timetracking.project.ProjectNotFoundException;
+import de.unipassau.timetracking.project.ProjectRepository;
 import de.unipassau.timetracking.security.AppUserPrincipal;
 import de.unipassau.timetracking.task.dto.CreateTaskRequest;
 import de.unipassau.timetracking.task.dto.StartTaskRequest;
@@ -9,9 +12,12 @@ import de.unipassau.timetracking.user.AppUser;
 import de.unipassau.timetracking.user.AppUserRepository;
 import jakarta.validation.Valid;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,15 +27,26 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * Transactional at the class level so the lazily-loaded {@code projects} association on a {@link
+ * Task} is still accessible when {@link TaskResponse#from} reads it, instead of failing once the
+ * repository call's own short-lived session has already closed.
+ */
 @RestController
 @RequestMapping("/api/tasks")
+@Transactional
 public class TaskController {
 
   private final TaskRepository taskRepository;
+  private final ProjectRepository projectRepository;
   private final AppUserRepository appUserRepository;
 
-  public TaskController(TaskRepository taskRepository, AppUserRepository appUserRepository) {
+  public TaskController(
+      TaskRepository taskRepository,
+      ProjectRepository projectRepository,
+      AppUserRepository appUserRepository) {
     this.taskRepository = taskRepository;
+    this.projectRepository = projectRepository;
     this.appUserRepository = appUserRepository;
   }
 
@@ -86,6 +103,7 @@ public class TaskController {
     AppUser owner = currentUser(authentication);
     Task task = new Task(owner, request.description(), request.startTime());
     task.stop(request.endTime());
+    task.setProjects(resolveProjects(request.projectIds(), owner));
     taskRepository.save(task);
     return ResponseEntity.status(201).body(TaskResponse.from(task));
   }
@@ -122,6 +140,7 @@ public class TaskController {
     }
 
     task.update(request.description(), request.startTime(), request.endTime());
+    task.setProjects(resolveProjects(request.projectIds(), owner));
     taskRepository.save(task);
     return ResponseEntity.ok(TaskResponse.from(task));
   }
@@ -137,5 +156,17 @@ public class TaskController {
   private AppUser currentUser(Authentication authentication) {
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
     return appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
+  }
+
+  private Set<Project> resolveProjects(Set<Long> projectIds, AppUser owner) {
+    if (projectIds == null || projectIds.isEmpty()) {
+      return new HashSet<>();
+    }
+    Set<Project> projects = new HashSet<>();
+    for (Long id : projectIds) {
+      projects.add(
+          projectRepository.findByIdAndOwner(id, owner).orElseThrow(ProjectNotFoundException::new));
+    }
+    return projects;
   }
 }

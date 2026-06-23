@@ -1,11 +1,17 @@
 import { apiClient } from './client'
 
+export interface TaskProject {
+  id: number
+  name: string
+}
+
 export interface Task {
   id: number
   description: string | null
   startTime: string
   endTime: string | null
   running: boolean
+  projects: TaskProject[]
 }
 
 export function startTask(description?: string): Promise<Task> {
@@ -24,12 +30,14 @@ export interface CreateTaskInput {
   description?: string
   startTime: string
   endTime: string
+  projectIds?: number[]
 }
 
 export interface UpdateTaskInput {
   description?: string
   startTime: string
   endTime: string | null
+  projectIds?: number[]
 }
 
 export function listTasks(): Promise<Task[]> {

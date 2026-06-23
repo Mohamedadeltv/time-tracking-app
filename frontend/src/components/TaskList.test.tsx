@@ -4,8 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { TaskList } from './TaskList'
 import { ApiError } from '../api/client'
 import * as tasksApi from '../api/tasks'
+import * as projectsApi from '../api/projects'
 
 vi.mock('../api/tasks')
+vi.mock('../api/projects')
 
 function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
   return {
@@ -14,6 +16,7 @@ function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
     startTime: '2026-01-01T09:00:00Z',
     endTime: '2026-01-01T10:00:00Z',
     running: false,
+    projects: [],
     ...overrides,
   }
 }
@@ -25,6 +28,7 @@ function addTaskForm() {
 describe('TaskList', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
   })
 
   it('shows a message when there are no tasks', async () => {
@@ -176,6 +180,81 @@ describe('TaskList', () => {
     await user.click(screen.getByRole('button', { name: 'Delete' }))
 
     expect(tasksApi.deleteTask).not.toHaveBeenCalled()
+  })
+
+  it('shows the associated projects for a task', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([
+      task({ projects: [{ id: 1, name: 'Alpha' }, { id: 2, name: 'Beta' }] }),
+    ])
+
+    render(<TaskList />)
+
+    await waitFor(() => expect(screen.getByText('Alpha, Beta')).toBeInTheDocument())
+  })
+
+  it('shows a dash when a task has no associated projects', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([task({ projects: [] })])
+
+    render(<TaskList />)
+
+    await waitFor(() => expect(screen.getByText('—')).toBeInTheDocument())
+  })
+
+  it('adds a task with selected projects', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ])
+    vi.mocked(tasksApi.createTask).mockResolvedValue(task())
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('No tasks yet.')).toBeInTheDocument())
+
+    const form = within(addTaskForm())
+    fireEvent.change(form.getByLabelText('Start'), { target: { value: '2026-01-01T09:00' } })
+    fireEvent.change(form.getByLabelText('End'), { target: { value: '2026-01-01T10:00' } })
+    await user.click(form.getByLabelText('Alpha'))
+    await user.click(form.getByRole('button', { name: 'Add task' }))
+
+    await waitFor(() =>
+      expect(tasksApi.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ projectIds: [1] }),
+      ),
+    )
+  })
+
+  it('pre-selects a task\'s current projects when editing, and saves the new selection', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([
+      task({ projects: [{ id: 1, name: 'Alpha' }] }),
+    ])
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([
+      { id: 1, name: 'Alpha' },
+      { id: 2, name: 'Beta' },
+    ])
+    vi.mocked(tasksApi.updateTask).mockResolvedValue(task())
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('Writing report')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    const saveButton = screen.getByRole('button', { name: 'Save' })
+    const editForm = within(saveButton.closest('form') as HTMLFormElement)
+
+    expect(editForm.getByLabelText('Alpha')).toBeChecked()
+    expect(editForm.getByLabelText('Beta')).not.toBeChecked()
+
+    await user.click(editForm.getByLabelText('Beta'))
+    await user.click(saveButton)
+
+    await waitFor(() =>
+      expect(tasksApi.updateTask).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ projectIds: expect.arrayContaining([1, 2]) }),
+      ),
+    )
   })
 
   it('shows an error when loading tasks fails', async () => {

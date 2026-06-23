@@ -1,5 +1,6 @@
 package de.unipassau.timetracking.task;
 
+import de.unipassau.timetracking.project.Project;
 import de.unipassau.timetracking.user.AppUser;
 import java.util.List;
 import java.util.Optional;
@@ -12,4 +13,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
   List<Task> findByOwnerOrderByStartTimeDesc(AppUser owner);
 
   Optional<Task> findByIdAndOwner(Long id, AppUser owner);
+
+  List<Task> findByOwnerAndProjectsContaining(AppUser owner, Project project);
 }
