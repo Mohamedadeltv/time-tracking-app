@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../api/client'
+import { TimeTracker } from '../components/TimeTracker'
 
 export function DashboardPage() {
   const { user, logout, changePassword } = useAuth()
@@ -42,6 +43,8 @@ export function DashboardPage() {
           Log out
         </button>
       </header>
+
+      <TimeTracker />
 
       <form
         onSubmit={handleChangePassword}

@@ -6,8 +6,10 @@ import { DashboardPage } from './DashboardPage'
 import { AuthProvider } from '../auth/AuthProvider'
 import { ApiError } from '../api/client'
 import * as authApi from '../api/auth'
+import * as tasksApi from '../api/tasks'
 
 vi.mock('../api/auth')
+vi.mock('../api/tasks')
 
 function renderDashboardPage() {
   return render(
@@ -26,6 +28,7 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.mocked(authApi.me).mockResolvedValue({ id: 1, email: 'a@example.com' })
+    vi.mocked(tasksApi.getCurrentTask).mockResolvedValue(undefined)
   })
 
   it('greets the current user', async () => {
