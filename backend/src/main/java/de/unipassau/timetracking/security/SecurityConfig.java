@@ -21,6 +21,7 @@ import org.springframework.security.web.context.HttpSessionSecurityContextReposi
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Configuration
@@ -48,7 +49,14 @@ public class SecurityConfig {
   @Bean
   public SecurityFilterChain filterChain(
       HttpSecurity http, SecurityContextRepository securityContextRepository) throws Exception {
-    http.csrf(csrf -> csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse()))
+    http.csrf(
+            // The default XorCsrfTokenRequestAttributeHandler masks the token it hands to the
+            // app, but CookieCsrfTokenRepository writes the raw token into the cookie, so the
+            // two never match for a plain cookie-read SPA client. Use the non-masking handler so
+            // the cookie value is exactly what the client must echo back.
+            csrf ->
+                csrf.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
         .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
         .securityContext(context -> context.securityContextRepository(securityContextRepository))
         .sessionManagement(
