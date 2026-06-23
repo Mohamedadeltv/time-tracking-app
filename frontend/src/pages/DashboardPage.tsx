@@ -4,6 +4,7 @@ import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../api/client'
 import { TimeTracker } from '../components/TimeTracker'
 import { TaskList } from '../components/TaskList'
+import { ProjectManager } from '../components/ProjectManager'
 
 export function DashboardPage() {
   const { user, logout, changePassword } = useAuth()
@@ -47,6 +48,8 @@ export function DashboardPage() {
       </header>
 
       <TimeTracker onTaskChange={() => setTaskListKey((key) => key + 1)} />
+
+      <ProjectManager onProjectsChange={() => setTaskListKey((key) => key + 1)} />
 
       <TaskList key={taskListKey} />
 

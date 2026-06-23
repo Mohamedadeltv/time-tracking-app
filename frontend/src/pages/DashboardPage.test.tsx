@@ -7,9 +7,11 @@ import { AuthProvider } from '../auth/AuthProvider'
 import { ApiError } from '../api/client'
 import * as authApi from '../api/auth'
 import * as tasksApi from '../api/tasks'
+import * as projectsApi from '../api/projects'
 
 vi.mock('../api/auth')
 vi.mock('../api/tasks')
+vi.mock('../api/projects')
 
 function renderDashboardPage() {
   return render(
@@ -30,6 +32,7 @@ describe('DashboardPage', () => {
     vi.mocked(authApi.me).mockResolvedValue({ id: 1, email: 'a@example.com' })
     vi.mocked(tasksApi.getCurrentTask).mockResolvedValue(undefined)
     vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
   })
 
   it('greets the current user', async () => {
@@ -45,6 +48,7 @@ describe('DashboardPage', () => {
       startTime: new Date().toISOString(),
       endTime: null,
       running: true,
+      projects: [],
     })
     const user = userEvent.setup()
     renderDashboardPage()
