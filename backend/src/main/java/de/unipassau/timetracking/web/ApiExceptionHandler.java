@@ -1,6 +1,8 @@
 package de.unipassau.timetracking.web;
 
+import de.unipassau.timetracking.task.InvalidTimeRangeException;
 import de.unipassau.timetracking.task.NoRunningTaskException;
+import de.unipassau.timetracking.task.TaskNotFoundException;
 import de.unipassau.timetracking.user.EmailAlreadyInUseException;
 import de.unipassau.timetracking.user.InvalidCurrentPasswordException;
 import java.util.LinkedHashMap;
@@ -42,6 +44,16 @@ public class ApiExceptionHandler {
   @ExceptionHandler(NoRunningTaskException.class)
   public ResponseEntity<Map<String, String>> handleNoRunningTask(NoRunningTaskException ex) {
     return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(InvalidTimeRangeException.class)
+  public ResponseEntity<Map<String, String>> handleInvalidTimeRange(InvalidTimeRangeException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(TaskNotFoundException.class)
+  public ResponseEntity<Map<String, String>> handleTaskNotFound(TaskNotFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
   }
 
   @ExceptionHandler(AuthenticationException.class)

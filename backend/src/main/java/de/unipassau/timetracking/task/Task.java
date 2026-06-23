@@ -65,4 +65,10 @@ public class Task {
   public void stop(Instant endTime) {
     this.endTime = endTime;
   }
+
+  public void update(String description, Instant startTime, Instant endTime) {
+    this.description = description;
+    this.startTime = startTime;
+    this.endTime = endTime;
+  }
 }
