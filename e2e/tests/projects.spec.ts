@@ -17,9 +17,10 @@ test('a project can be created, associated with a task, then unassigned, then de
   const projectsSection = page
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: 'Projects' }) })
+  const projectList = projectsSection.getByRole('list', { name: 'Project list' })
   await projectsSection.getByLabel('New project').fill('Lecture')
   await projectsSection.getByRole('button', { name: 'Add project' }).click()
-  await expect(projectsSection.getByText('Lecture')).toBeVisible()
+  await expect(projectList.getByText('Lecture')).toBeVisible()
 
   const addTaskForm = page
     .locator('form')
@@ -56,14 +57,15 @@ test('a project can be renamed, and a duplicate name is rejected', async ({ page
   const projectsSection = page
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: 'Projects' }) })
+  const projectList = projectsSection.getByRole('list', { name: 'Project list' })
   await projectsSection.getByLabel('New project').fill('Lecture')
   await projectsSection.getByRole('button', { name: 'Add project' }).click()
-  await expect(projectsSection.getByText('Lecture')).toBeVisible()
+  await expect(projectList.getByText('Lecture')).toBeVisible()
 
   await projectsSection.getByRole('button', { name: 'Rename' }).click()
   await projectsSection.getByLabel('Project name').fill('Seminar')
   await projectsSection.getByRole('button', { name: 'Save' }).click()
-  await expect(projectsSection.getByText('Seminar')).toBeVisible()
+  await expect(projectList.getByText('Seminar')).toBeVisible()
 
   await projectsSection.getByLabel('New project').fill('Seminar')
   await projectsSection.getByRole('button', { name: 'Add project' }).click()
