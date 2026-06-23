@@ -6,8 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class TimetrackingApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(TimetrackingApplication.class, args);
-	}
-
+  public static void main(String[] args) {
+    SpringApplication.run(TimetrackingApplication.class, args);
+  }
 }
