@@ -1,32 +1,24 @@
-import { useEffect, useState } from 'react'
-
-type BackendStatus = 'checking' | 'online' | 'offline'
-
-const STATUS_STYLES: Record<BackendStatus, string> = {
-  checking: 'bg-gray-100 text-gray-600',
-  online: 'bg-green-100 text-green-700',
-  offline: 'bg-red-100 text-red-700',
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext'
+import { ProtectedRoute } from './auth/ProtectedRoute'
+import { LoginPage } from './pages/LoginPage'
+import { RegisterPage } from './pages/RegisterPage'
+import { DashboardPage } from './pages/DashboardPage'
 
 function App() {
-  const [status, setStatus] = useState<BackendStatus>('checking')
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => setStatus(res.ok ? 'online' : 'offline'))
-      .catch(() => setStatus('offline'))
-  }, [])
-
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-50">
-      <h1 className="text-3xl font-semibold text-slate-900">Time Tracking</h1>
-      <p
-        data-testid="backend-status"
-        className={`rounded-full px-4 py-1 text-sm font-medium ${STATUS_STYLES[status]}`}
-      >
-        Backend: {status}
-      </p>
-    </main>
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route path="/" element={<DashboardPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
   )
 }
 
