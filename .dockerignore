@@ -1,0 +1,10 @@
+.git
+**/node_modules
+**/dist
+**/target
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+.vscode
+.idea
