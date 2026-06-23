@@ -25,6 +25,10 @@ public class Project {
   @Column(nullable = false)
   private String name;
 
+  @ManyToOne
+  @JoinColumn(name = "parent_id")
+  private Project parent;
+
   protected Project() {}
 
   public Project(AppUser owner, String name) {
@@ -46,5 +50,13 @@ public class Project {
 
   public void rename(String name) {
     this.name = name;
+  }
+
+  public Project getParent() {
+    return parent;
+  }
+
+  public void setParent(Project parent) {
+    this.parent = parent;
   }
 }

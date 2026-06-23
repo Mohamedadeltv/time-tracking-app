@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -59,6 +59,28 @@ describe('DashboardPage', () => {
     await user.click(screen.getByRole('button', { name: 'Start' }))
 
     await waitFor(() => expect(tasksApi.listTasks).toHaveBeenCalledTimes(2))
+  })
+
+  it('reloads the project list after adding a task', async () => {
+    vi.mocked(tasksApi.createTask).mockResolvedValue({
+      id: 1,
+      description: null,
+      startTime: '2026-01-01T09:00:00Z',
+      endTime: '2026-01-01T10:00:00Z',
+      running: false,
+      projects: [],
+    })
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(2))
+
+    fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-01-01T09:00' } })
+    fireEvent.change(screen.getByLabelText('End'), { target: { value: '2026-01-01T10:00' } })
+    await user.click(screen.getByRole('button', { name: 'Add task' }))
+
+    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(4))
   })
 
   it('logs out and navigates to the login page', async () => {

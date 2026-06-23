@@ -1,6 +1,6 @@
 package de.unipassau.timetracking.task.dto;
 
-import de.unipassau.timetracking.project.dto.ProjectResponse;
+import de.unipassau.timetracking.project.dto.ProjectSummary;
 import de.unipassau.timetracking.task.Task;
 import java.time.Instant;
 import java.util.Comparator;
@@ -12,7 +12,7 @@ public record TaskResponse(
     Instant startTime,
     Instant endTime,
     boolean running,
-    List<ProjectResponse> projects) {
+    List<ProjectSummary> projects) {
 
   public static TaskResponse from(Task task) {
     return new TaskResponse(
@@ -22,8 +22,8 @@ public record TaskResponse(
         task.getEndTime(),
         task.isRunning(),
         task.getProjects().stream()
-            .map(ProjectResponse::from)
-            .sorted(Comparator.comparing(ProjectResponse::name))
+            .map(ProjectSummary::from)
+            .sorted(Comparator.comparing(ProjectSummary::name))
             .toList());
   }
 }

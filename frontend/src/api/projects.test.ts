@@ -30,26 +30,35 @@ describe('projects api', () => {
     expect(init?.method).toBe('GET')
   })
 
-  it('createProject posts the name to /api/projects', async () => {
-    mockFetchOnce(201, { id: 1, name: 'Lecture' })
+  it('createProject posts the name and parentId to /api/projects', async () => {
+    mockFetchOnce(201, { id: 1, name: 'Lecture', parentId: null, totalSeconds: 0 })
 
-    await projectsApi.createProject('Lecture')
+    await projectsApi.createProject('Lecture', 5)
 
     const [path, init] = vi.mocked(fetch).mock.calls[0]
     expect(path).toBe('/api/projects')
     expect(init?.method).toBe('POST')
-    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Lecture' })
+    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Lecture', parentId: 5 })
   })
 
-  it('updateProject puts the name to /api/projects/:id', async () => {
-    mockFetchOnce(200, { id: 1, name: 'Renamed' })
+  it('createProject defaults parentId to null', async () => {
+    mockFetchOnce(201, { id: 1, name: 'Lecture', parentId: null, totalSeconds: 0 })
 
-    await projectsApi.updateProject(1, 'Renamed')
+    await projectsApi.createProject('Lecture')
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Lecture', parentId: null })
+  })
+
+  it('updateProject puts the name and parentId to /api/projects/:id', async () => {
+    mockFetchOnce(200, { id: 1, name: 'Renamed', parentId: null, totalSeconds: 0 })
+
+    await projectsApi.updateProject(1, 'Renamed', 5)
 
     const [path, init] = vi.mocked(fetch).mock.calls[0]
     expect(path).toBe('/api/projects/1')
     expect(init?.method).toBe('PUT')
-    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Renamed' })
+    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Renamed', parentId: 5 })
   })
 
   it('deleteProject deletes /api/projects/:id', async () => {

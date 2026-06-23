@@ -1,5 +1,6 @@
 package de.unipassau.timetracking.web;
 
+import de.unipassau.timetracking.project.InvalidProjectHierarchyException;
 import de.unipassau.timetracking.project.ProjectNameAlreadyInUseException;
 import de.unipassau.timetracking.project.ProjectNotFoundException;
 import de.unipassau.timetracking.task.InvalidTimeRangeException;
@@ -67,6 +68,12 @@ public class ApiExceptionHandler {
   public ResponseEntity<Map<String, String>> handleProjectNameAlreadyInUse(
       ProjectNameAlreadyInUseException ex) {
     return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(InvalidProjectHierarchyException.class)
+  public ResponseEntity<Map<String, String>> handleInvalidProjectHierarchy(
+      InvalidProjectHierarchyException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
   }
 
   @ExceptionHandler(AuthenticationException.class)
