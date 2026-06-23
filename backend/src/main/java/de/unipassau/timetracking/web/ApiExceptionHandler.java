@@ -1,5 +1,6 @@
 package de.unipassau.timetracking.web;
 
+import de.unipassau.timetracking.task.NoRunningTaskException;
 import de.unipassau.timetracking.user.EmailAlreadyInUseException;
 import de.unipassau.timetracking.user.InvalidCurrentPasswordException;
 import java.util.LinkedHashMap;
@@ -36,6 +37,11 @@ public class ApiExceptionHandler {
   public ResponseEntity<Map<String, String>> handleInvalidCurrentPassword(
       InvalidCurrentPasswordException ex) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(NoRunningTaskException.class)
+  public ResponseEntity<Map<String, String>> handleNoRunningTask(NoRunningTaskException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
   }
 
   @ExceptionHandler(AuthenticationException.class)
