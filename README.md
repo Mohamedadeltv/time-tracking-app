@@ -9,7 +9,8 @@ hierarchical projects, and review totals over day/week/month or a custom range.
 
 - **Backend:** Spring Boot 3.5 (Java 21), Spring Data JPA, PostgreSQL
 - **Frontend:** React + TypeScript, Vite, Tailwind CSS
-- **Tests:** JUnit/MockMvc + Jacoco (backend), Vitest + React Testing Library (frontend)
+- **Tests:** JUnit/MockMvc + Jacoco (backend), Vitest + React Testing Library (frontend),
+  Playwright against Firefox (system/E2E)
 - **Packaging:** multi-stage Docker build (Spring serves the built React app); Docker
   Compose runs the app together with Postgres
 
@@ -55,18 +56,28 @@ cd frontend && npm ci && npm run test:coverage && npm run lint && npm run build
 
 Coverage reports: `backend/target/site/jacoco/index.html` and `frontend/coverage/index.html`.
 
+System/E2E tests run against the full Docker Compose stack (requires Firefox):
+
+```sh
+docker compose up -d --build
+cd e2e && npm ci && npx playwright install firefox && npm test
+docker compose down
+```
+
 ## Project structure
 
 ```
 backend/                  Spring Boot REST API + JPA + Postgres
 frontend/                 React + TypeScript + Vite + Tailwind
+e2e/                      Playwright system tests (Firefox) against the Docker Compose stack
 Dockerfile                multi-stage build: frontend -> backend jar -> runtime image
 docker-compose.yml        app + Postgres, for local/grading deployment
-.github/workflows/ci.yml  CI: backend test+coverage+format, frontend lint+build+test+coverage
+.github/workflows/ci.yml  CI: backend test+coverage+format, frontend lint+build+test+coverage, E2E
 ```
 
 ## CI
 
 GitHub Actions runs on every push to `main` and every pull request: backend
-`./mvnw clean verify` (tests, coverage, format check) and frontend lint, build
-(type-check), and tests with coverage.
+`./mvnw clean verify` (tests, coverage, format check), frontend lint, build
+(type-check), and tests with coverage, and a Playwright system-test job against the
+built Docker Compose stack.

@@ -1,7 +1,7 @@
-package de.unipassau.timetracking;
+package de.unipassau.timetracking.web;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.forwardedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -10,17 +10,25 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.test.web.servlet.MockMvc;
 
-@WebMvcTest(HealthController.class)
+@WebMvcTest(SpaController.class)
 @AutoConfigureMockMvc(addFilters = false)
-class HealthControllerTest {
+class SpaControllerTest {
 
   @Autowired private MockMvc mockMvc;
 
   @Test
-  void healthReturnsOk() throws Exception {
+  void forwardsLoginToIndexHtml() throws Exception {
     mockMvc
-        .perform(get("/api/health"))
+        .perform(get("/login"))
         .andExpect(status().isOk())
-        .andExpect(content().string("OK"));
+        .andExpect(forwardedUrl("/index.html"));
+  }
+
+  @Test
+  void forwardsRegisterToIndexHtml() throws Exception {
+    mockMvc
+        .perform(get("/register"))
+        .andExpect(status().isOk())
+        .andExpect(forwardedUrl("/index.html"));
   }
 }
