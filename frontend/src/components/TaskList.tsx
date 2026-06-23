@@ -56,7 +56,13 @@ function ProjectCheckboxes({
   )
 }
 
-export function TaskList() {
+export function TaskList({
+  refreshSignal,
+  onTasksChange,
+}: {
+  refreshSignal?: number
+  onTasksChange?: () => void
+} = {}) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -84,8 +90,14 @@ export function TaskList() {
   }
 
   useEffect(() => {
-    load()
-  }, [])
+    listTasks()
+      .then(setTasks)
+      .catch(() => setError('Could not load tasks.'))
+      .finally(() => setLoading(false))
+    listProjects()
+      .then(setProjects)
+      .catch(() => setProjects([]))
+  }, [refreshSignal])
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -102,6 +114,7 @@ export function TaskList() {
       setNewEnd('')
       setNewProjectIds(new Set())
       load()
+      onTasksChange?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not add the task.')
     }
@@ -128,6 +141,7 @@ export function TaskList() {
       })
       setEditingId(null)
       load()
+      onTasksChange?.()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not update the task.')
     }
@@ -141,6 +155,7 @@ export function TaskList() {
     try {
       await deleteTask(id)
       load()
+      onTasksChange?.()
     } catch {
       setError('Could not delete the task.')
     }

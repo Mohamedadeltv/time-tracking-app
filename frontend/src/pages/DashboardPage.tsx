@@ -14,7 +14,8 @@ export function DashboardPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [taskListKey, setTaskListKey] = useState(0)
+  const [taskListRefresh, setTaskListRefresh] = useState(0)
+  const [projectManagerRefresh, setProjectManagerRefresh] = useState(0)
 
   async function handleLogout() {
     await logout()
@@ -47,11 +48,17 @@ export function DashboardPage() {
         </button>
       </header>
 
-      <TimeTracker onTaskChange={() => setTaskListKey((key) => key + 1)} />
+      <TimeTracker onTaskChange={() => setTaskListRefresh((n) => n + 1)} />
 
-      <ProjectManager onProjectsChange={() => setTaskListKey((key) => key + 1)} />
+      <ProjectManager
+        refreshSignal={projectManagerRefresh}
+        onProjectsChange={() => setTaskListRefresh((n) => n + 1)}
+      />
 
-      <TaskList key={taskListKey} />
+      <TaskList
+        refreshSignal={taskListRefresh}
+        onTasksChange={() => setProjectManagerRefresh((n) => n + 1)}
+      />
 
       <form
         onSubmit={handleChangePassword}

@@ -203,8 +203,8 @@ describe('TaskList', () => {
   it('adds a task with selected projects', async () => {
     vi.mocked(tasksApi.listTasks).mockResolvedValue([])
     vi.mocked(projectsApi.listProjects).mockResolvedValue([
-      { id: 1, name: 'Alpha' },
-      { id: 2, name: 'Beta' },
+      { id: 1, name: 'Alpha', parentId: null, totalSeconds: 0 },
+      { id: 2, name: 'Beta', parentId: null, totalSeconds: 0 },
     ])
     vi.mocked(tasksApi.createTask).mockResolvedValue(task())
     const user = userEvent.setup()
@@ -230,8 +230,8 @@ describe('TaskList', () => {
       task({ projects: [{ id: 1, name: 'Alpha' }] }),
     ])
     vi.mocked(projectsApi.listProjects).mockResolvedValue([
-      { id: 1, name: 'Alpha' },
-      { id: 2, name: 'Beta' },
+      { id: 1, name: 'Alpha', parentId: null, totalSeconds: 0 },
+      { id: 2, name: 'Beta', parentId: null, totalSeconds: 0 },
     ])
     vi.mocked(tasksApi.updateTask).mockResolvedValue(task())
     const user = userEvent.setup()
