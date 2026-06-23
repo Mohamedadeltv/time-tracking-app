@@ -1,13 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { getCurrentTask, startTask, stopTask, type Task } from '../api/tasks'
-
-function formatDuration(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = Math.floor(totalSeconds % 60)
-  return [hours, minutes, seconds].map((n) => String(n).padStart(2, '0')).join(':')
-}
+import { formatDuration } from '../utils/duration'
 
 function elapsedSecondsSince(startTime: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(startTime).getTime()) / 1000))
