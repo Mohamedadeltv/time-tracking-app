@@ -98,7 +98,7 @@ jobs:
 
       - name: Install Playwright Firefox
         working-directory: e2e
-        run: npx playwright install --with-deps firefox
+        run: npx playwright install firefox
 
       - name: Run Playwright tests
         working-directory: e2e
