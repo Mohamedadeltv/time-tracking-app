@@ -40,8 +40,12 @@ export interface UpdateTaskInput {
   projectIds?: number[]
 }
 
-export function listTasks(): Promise<Task[]> {
-  return apiClient.get<Task[]>('/api/tasks')
+export function listTasks(from?: string, to?: string): Promise<Task[]> {
+  const params = new URLSearchParams()
+  if (from) params.set('from', from)
+  if (to) params.set('to', to)
+  const query = params.toString()
+  return apiClient.get<Task[]>(`/api/tasks${query ? `?${query}` : ''}`)
 }
 
 export function createTask(input: CreateTaskInput): Promise<Task> {

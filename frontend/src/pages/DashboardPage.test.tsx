@@ -74,13 +74,16 @@ describe('DashboardPage', () => {
     renderDashboardPage()
 
     await waitFor(() => screen.getByText('Hi, a@example.com'))
-    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(2))
+    // One initial fetch each from TaskList (project checkboxes), ProjectManager, and Overview.
+    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(3))
 
     fireEvent.change(screen.getByLabelText('Start'), { target: { value: '2026-01-01T09:00' } })
     fireEvent.change(screen.getByLabelText('End'), { target: { value: '2026-01-01T10:00' } })
     await user.click(screen.getByRole('button', { name: 'Add task' }))
 
-    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(4))
+    // +1 from TaskList's own reload, +1 each from ProjectManager and Overview reacting to
+    // onTasksChange bumping the shared refresh signal.
+    await waitFor(() => expect(projectsApi.listProjects).toHaveBeenCalledTimes(6))
   })
 
   it('logs out and navigates to the login page', async () => {

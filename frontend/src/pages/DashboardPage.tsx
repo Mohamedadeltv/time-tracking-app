@@ -5,6 +5,7 @@ import { ApiError } from '../api/client'
 import { TimeTracker } from '../components/TimeTracker'
 import { TaskList } from '../components/TaskList'
 import { ProjectManager } from '../components/ProjectManager'
+import { Overview } from '../components/Overview'
 
 export function DashboardPage() {
   const { user, logout, changePassword } = useAuth()
@@ -59,6 +60,8 @@ export function DashboardPage() {
         refreshSignal={taskListRefresh}
         onTasksChange={() => setProjectManagerRefresh((n) => n + 1)}
       />
+
+      <Overview projectsRefreshSignal={projectManagerRefresh} />
 
       <form
         onSubmit={handleChangePassword}
