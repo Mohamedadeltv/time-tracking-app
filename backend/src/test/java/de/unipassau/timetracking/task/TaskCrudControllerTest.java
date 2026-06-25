@@ -158,7 +158,10 @@ class TaskCrudControllerTest {
   @Test
   void listFiltersTasksByFromAndToStartInclusiveEndExclusive() throws Exception {
     MockHttpSession session = registerAndGetSession(uniqueEmail());
-    Instant now = Instant.now();
+    // Truncate to milliseconds: H2 stores timestamps with microsecond precision at most, so
+    // boundary comparisons against full-nanosecond Instants would shift the boundary task
+    // outside its expected range.
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     createTask(
         session,
         "Day before",
@@ -189,7 +192,7 @@ class TaskCrudControllerTest {
   @Test
   void listWithOnlyFromIncludesEverythingFromThenOn() throws Exception {
     MockHttpSession session = registerAndGetSession(uniqueEmail());
-    Instant now = Instant.now();
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     createTask(session, "Old", now.minus(5, ChronoUnit.HOURS), now.minus(4, ChronoUnit.HOURS));
     long recentId = createTask(session, "Recent", now.minus(1, ChronoUnit.HOURS), now);
 
