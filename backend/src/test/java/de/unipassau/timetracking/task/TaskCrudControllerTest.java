@@ -156,6 +156,80 @@ class TaskCrudControllerTest {
   }
 
   @Test
+  void listFiltersTasksByFromAndToStartInclusiveEndExclusive() throws Exception {
+    MockHttpSession session = registerAndGetSession(uniqueEmail());
+    // Truncate to milliseconds: H2 stores timestamps with microsecond precision at most, so
+    // boundary comparisons against full-nanosecond Instants would shift the boundary task
+    // outside its expected range.
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    createTask(
+        session,
+        "Day before",
+        now.minus(2, ChronoUnit.DAYS),
+        now.minus(2, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS));
+    long inRangeId =
+        createTask(
+            session,
+            "In range",
+            now.minus(1, ChronoUnit.DAYS),
+            now.minus(1, ChronoUnit.DAYS).plus(1, ChronoUnit.HOURS));
+    createTask(session, "Day after", now, now.plus(1, ChronoUnit.HOURS));
+
+    Instant from = now.minus(1, ChronoUnit.DAYS);
+    Instant to = now;
+
+    mockMvc
+        .perform(
+            get("/api/tasks")
+                .session(session)
+                .param("from", from.toString())
+                .param("to", to.toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].id").value(inRangeId));
+  }
+
+  @Test
+  void listWithOnlyFromIncludesEverythingFromThenOn() throws Exception {
+    MockHttpSession session = registerAndGetSession(uniqueEmail());
+    Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    createTask(session, "Old", now.minus(5, ChronoUnit.HOURS), now.minus(4, ChronoUnit.HOURS));
+    long recentId = createTask(session, "Recent", now.minus(1, ChronoUnit.HOURS), now);
+
+    mockMvc
+        .perform(
+            get("/api/tasks")
+                .session(session)
+                .param("from", now.minus(2, ChronoUnit.HOURS).toString()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].id").value(recentId));
+  }
+
+  @Test
+  void listRejectsAToThatIsNotAfterFrom() throws Exception {
+    MockHttpSession session = registerAndGetSession(uniqueEmail());
+    Instant now = Instant.now();
+
+    mockMvc
+        .perform(
+            get("/api/tasks")
+                .session(session)
+                .param("from", now.toString())
+                .param("to", now.minus(1, ChronoUnit.HOURS).toString()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void listRejectsAnUnparsableFromOrTo() throws Exception {
+    MockHttpSession session = registerAndGetSession(uniqueEmail());
+
+    mockMvc
+        .perform(get("/api/tasks").session(session).param("from", "not-a-date"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
   void updateChangesDescriptionAndTimes() throws Exception {
     MockHttpSession session = registerAndGetSession(uniqueEmail());
     Instant start = Instant.now().minus(2, ChronoUnit.HOURS);

@@ -95,6 +95,24 @@ describe('tasks api', () => {
     expect(init?.method).toBe('GET')
   })
 
+  it('listTasks sends from and to as query params when given', async () => {
+    mockFetchOnce(200, [])
+
+    await tasksApi.listTasks('2026-01-01T00:00:00Z', '2026-01-02T00:00:00Z')
+
+    const [path] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks?from=2026-01-01T00%3A00%3A00Z&to=2026-01-02T00%3A00%3A00Z')
+  })
+
+  it('listTasks omits the query string when no range is given', async () => {
+    mockFetchOnce(200, [])
+
+    await tasksApi.listTasks()
+
+    const [path] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/tasks')
+  })
+
   it('createTask posts the explicit times to /api/tasks', async () => {
     mockFetchOnce(201, {
       id: 1,

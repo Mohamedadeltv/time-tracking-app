@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -108,10 +109,22 @@ public class TaskController {
     return ResponseEntity.status(201).body(TaskResponse.from(task));
   }
 
+  /**
+   * {@code from}/{@code to} are optional ISO-8601 instants that scope the list to tasks starting
+   * within that window (start-inclusive, end-exclusive) - used for the current day/week/month
+   * overviews, whose boundaries the frontend computes in the user's local timezone.
+   */
   @GetMapping
-  public List<TaskResponse> list(Authentication authentication) {
+  public List<TaskResponse> list(
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      Authentication authentication) {
     AppUser owner = currentUser(authentication);
+    Instant fromInstant = TimeRange.parse(from);
+    Instant toInstant = TimeRange.parse(to);
+    TimeRange.validate(fromInstant, toInstant);
     return taskRepository.findByOwnerOrderByStartTimeDesc(owner).stream()
+        .filter(task -> TimeRange.contains(task, fromInstant, toInstant))
         .map(TaskResponse::from)
         .toList();
   }

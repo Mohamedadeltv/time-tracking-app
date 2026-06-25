@@ -1,16 +1,21 @@
 package de.unipassau.timetracking.project;
 
 import de.unipassau.timetracking.project.dto.CreateProjectRequest;
+import de.unipassau.timetracking.project.dto.ProjectOverviewResponse;
 import de.unipassau.timetracking.project.dto.ProjectResponse;
 import de.unipassau.timetracking.project.dto.UpdateProjectRequest;
 import de.unipassau.timetracking.security.AppUserPrincipal;
 import de.unipassau.timetracking.task.Task;
 import de.unipassau.timetracking.task.TaskRepository;
+import de.unipassau.timetracking.task.TimeRange;
+import de.unipassau.timetracking.task.dto.TaskResponse;
 import de.unipassau.timetracking.user.AppUser;
 import de.unipassau.timetracking.user.AppUserRepository;
 import jakarta.validation.Valid;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
@@ -27,6 +32,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -123,6 +129,46 @@ public class ProjectController {
     return ResponseEntity.noContent().build();
   }
 
+  /**
+   * The tasks of a project and all its descendant subprojects (deduplicated, see {@link
+   * #totalSecondsFor}), optionally restricted to those starting within {@code from}/{@code to},
+   * together with the rolled-up total over that same filtered set.
+   */
+  @GetMapping("/{id}/overview")
+  public ProjectOverviewResponse overview(
+      @PathVariable Long id,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      Authentication authentication) {
+    AppUser owner = currentUser(authentication);
+    Project project =
+        projectRepository.findByIdAndOwner(id, owner).orElseThrow(ProjectNotFoundException::new);
+    Instant fromInstant = TimeRange.parse(from);
+    Instant toInstant = TimeRange.parse(to);
+    TimeRange.validate(fromInstant, toInstant);
+
+    List<Project> all = projectRepository.findByOwnerOrderByNameAsc(owner);
+    Set<Project> subtree = subtreeOf(project, childrenByParentId(all));
+    List<Task> tasks =
+        taskRepository.findDistinctByOwnerAndProjectsIn(owner, subtree).stream()
+            .filter(task -> TimeRange.contains(task, fromInstant, toInstant))
+            .sorted(Comparator.comparing(Task::getStartTime).reversed())
+            .toList();
+
+    long totalSeconds =
+        tasks.stream()
+            .filter(task -> task.getEndTime() != null)
+            .mapToLong(
+                task -> Duration.between(task.getStartTime(), task.getEndTime()).getSeconds())
+            .sum();
+
+    return new ProjectOverviewResponse(
+        project.getId(),
+        project.getName(),
+        totalSeconds,
+        tasks.stream().map(TaskResponse::from).toList());
+  }
+
   private Project resolveParent(Long parentId, AppUser owner) {
     if (parentId == null) {
       return null;
@@ -156,6 +202,14 @@ public class ProjectController {
    */
   private long totalSecondsFor(
       Project root, Map<Long, List<Project>> childrenByParentId, AppUser owner) {
+    Set<Project> subtree = subtreeOf(root, childrenByParentId);
+    return taskRepository.findDistinctByOwnerAndProjectsIn(owner, subtree).stream()
+        .filter(task -> task.getEndTime() != null)
+        .mapToLong(task -> Duration.between(task.getStartTime(), task.getEndTime()).getSeconds())
+        .sum();
+  }
+
+  private Set<Project> subtreeOf(Project root, Map<Long, List<Project>> childrenByParentId) {
     Set<Project> subtree = new HashSet<>();
     Deque<Project> toVisit = new ArrayDeque<>();
     toVisit.push(root);
@@ -165,11 +219,7 @@ public class ProjectController {
         childrenByParentId.getOrDefault(current.getId(), List.of()).forEach(toVisit::push);
       }
     }
-
-    return taskRepository.findDistinctByOwnerAndProjectsIn(owner, subtree).stream()
-        .filter(task -> task.getEndTime() != null)
-        .mapToLong(task -> Duration.between(task.getStartTime(), task.getEndTime()).getSeconds())
-        .sum();
+    return subtree;
   }
 
   private AppUser currentUser(Authentication authentication) {
