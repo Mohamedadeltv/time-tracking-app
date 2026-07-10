@@ -5,6 +5,13 @@ export interface Project {
   name: string
   parentId: number | null
   totalSeconds: number
+  ownerId: number
+}
+
+export interface Member {
+  userId: number
+  email: string
+  role: 'OWNER' | 'MEMBER'
 }
 
 export function listProjects(): Promise<Project[]> {
@@ -25,4 +32,16 @@ export function updateProject(
 
 export function deleteProject(id: number): Promise<void> {
   return apiClient.delete<void>(`/api/projects/${id}`)
+}
+
+export function listMembers(projectId: number): Promise<Member[]> {
+  return apiClient.get<Member[]>(`/api/projects/${projectId}/members`)
+}
+
+export function inviteMember(projectId: number, email: string): Promise<Member> {
+  return apiClient.post<Member>(`/api/projects/${projectId}/members`, { email })
+}
+
+export function removeMember(projectId: number, userId: number): Promise<void> {
+  return apiClient.delete<void>(`/api/projects/${projectId}/members/${userId}`)
 }
