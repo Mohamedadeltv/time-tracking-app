@@ -364,7 +364,7 @@ describe('ProjectManager', () => {
     await waitFor(() => expect(screen.getByText('No projects yet.')).toBeInTheDocument())
 
     await user.type(screen.getByLabelText('New project'), 'Lecture')
-    await user.type(screen.getByLabelText('Budget hours (new project)'), '10')
+    await user.type(screen.getByLabelText('Budget hours'), '10')
     await user.click(screen.getByRole('button', { name: 'Add project' }))
 
     await waitFor(() =>
