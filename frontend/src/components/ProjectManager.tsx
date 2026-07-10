@@ -394,7 +394,7 @@ export function ProjectManager({
           Budget (h)
           <input
             type="number"
-            aria-label="New project budget hours"
+            aria-label="Budget hours (new project)"
             min={1}
             value={newBudgetHours}
             onChange={(e) => setNewBudgetHours(e.target.value)}
