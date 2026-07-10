@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Overview } from './Overview'
 import { ApiError } from '../api/client'
+import * as exportApi from '../api/export'
 import * as overviewApi from '../api/overview'
 import * as projectsApi from '../api/projects'
 import * as tasksApi from '../api/tasks'
@@ -10,6 +11,9 @@ import * as tasksApi from '../api/tasks'
 vi.mock('../api/overview')
 vi.mock('../api/projects')
 vi.mock('../api/tasks')
+vi.mock('../api/export', () => ({
+  buildExportUrl: vi.fn(() => '/api/projects/1/export?format=csv'),
+}))
 
 function project(overrides: Partial<projectsApi.Project> = {}): projectsApi.Project {
   return {
@@ -188,6 +192,57 @@ describe('Overview', () => {
 
     await waitFor(() =>
       expect(screen.getByText('Could not load tasks for this period.')).toBeInTheDocument(),
+    )
+  })
+
+  it('shows export controls when a project is selected', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    const user = userEvent.setup()
+
+    render(<Overview />)
+    await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
+
+    expect(screen.getByLabelText('Export format')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Download' })).toBeInTheDocument()
+  })
+
+  it('download button calls buildExportUrl with selected format', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    const user = userEvent.setup()
+    const mockAnchor = { href: '', click: vi.fn() } as unknown as HTMLAnchorElement
+    const orig = document.createElement.bind(document)
+    const spy = vi
+      .spyOn(document, 'createElement')
+      .mockImplementation((tag: string, ...args: unknown[]) =>
+        tag === 'a' ? mockAnchor : orig(tag as keyof HTMLElementTagNameMap, ...(args as [])),
+      )
+
+    render(<Overview />)
+    await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
+    await user.selectOptions(screen.getByLabelText('Export format'), 'json')
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+
+    expect(exportApi.buildExportUrl).toHaveBeenCalledWith(1, 'json', undefined, undefined)
+    expect(mockAnchor.click).toHaveBeenCalled()
+    spy.mockRestore()
+  })
+
+  it('passes month boundaries to buildExportUrl when specific month is selected', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    const user = userEvent.setup()
+
+    render(<Overview />)
+    await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
+    await user.selectOptions(screen.getByLabelText('Export period'), 'month')
+
+    await waitFor(() => expect(screen.getByLabelText('Export year')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Download' }))
+
+    expect(exportApi.buildExportUrl).toHaveBeenCalledWith(
+      1,
+      'csv',
+      expect.any(String),
+      expect.any(String),
     )
   })
 })
