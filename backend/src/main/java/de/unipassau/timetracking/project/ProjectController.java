@@ -78,6 +78,7 @@ public class ProjectController {
     }
     Project project = new Project(owner, request.name());
     project.setParent(resolveParent(request.parentId(), owner));
+    project.setBudgetHours(request.budgetHours());
     projectRepository.save(project);
     projectMemberRepository.save(new ProjectMember(project, owner, ProjectRole.OWNER));
     return ResponseEntity.status(201).body(ProjectResponse.from(project, 0));
@@ -111,6 +112,7 @@ public class ProjectController {
     }
     project.rename(request.name());
     project.setParent(newParent);
+    project.setBudgetHours(request.budgetHours());
     projectRepository.save(project);
 
     List<Project> all = projectMemberRepository.findAccessibleProjectsByUser(owner);

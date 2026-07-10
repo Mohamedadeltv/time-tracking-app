@@ -154,6 +154,26 @@ function MembersPanel({
   )
 }
 
+function BudgetBar({ used, budgetHours }: { used: number; budgetHours: number }) {
+  const budgetSeconds = budgetHours * 3600
+  const pct = Math.min(100, Math.round((used / budgetSeconds) * 100))
+  const over = used > budgetSeconds
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-200">
+        <span
+          className={`block h-full rounded-full ${over ? 'bg-red-500' : 'bg-emerald-500'}`}
+          style={{ width: `${pct}%` }}
+          aria-label={`Budget: ${pct}% used`}
+        />
+      </span>
+      <span className={`text-xs ${over ? 'text-red-600' : 'text-slate-500'}`}>
+        {formatDuration(used)} / {budgetHours}h
+      </span>
+    </span>
+  )
+}
+
 export function ProjectManager({
   refreshSignal,
   onProjectsChange,
@@ -167,9 +187,11 @@ export function ProjectManager({
   const [error, setError] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
   const [newParentId, setNewParentId] = useState<number | null>(null)
+  const [newBudgetHours, setNewBudgetHours] = useState('')
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editParentId, setEditParentId] = useState<number | null>(null)
+  const [editBudgetHours, setEditBudgetHours] = useState('')
   const [managingMembersId, setManagingMembersId] = useState<number | null>(null)
 
   function load() {
@@ -190,9 +212,10 @@ export function ProjectManager({
     event.preventDefault()
     setError(null)
     try {
-      await createProject(newName.trim(), newParentId)
+      await createProject(newName.trim(), newParentId, newBudgetHours ? Number(newBudgetHours) : null)
       setNewName('')
       setNewParentId(null)
+      setNewBudgetHours('')
       load()
       onProjectsChange?.()
     } catch (err) {
@@ -205,13 +228,14 @@ export function ProjectManager({
     setEditingId(project.id)
     setEditName(project.name)
     setEditParentId(project.parentId)
+    setEditBudgetHours(project.budgetHours ? String(project.budgetHours) : '')
   }
 
   async function handleRename(event: FormEvent, id: number) {
     event.preventDefault()
     setError(null)
     try {
-      await updateProject(id, editName.trim(), editParentId)
+      await updateProject(id, editName.trim(), editParentId, editBudgetHours ? Number(editBudgetHours) : null)
       setEditingId(null)
       load()
       onProjectsChange?.()
@@ -266,6 +290,18 @@ export function ProjectManager({
                 value={editParentId}
                 onChange={setEditParentId}
               />
+              <label className="flex flex-col gap-1 text-sm text-slate-700">
+                Budget (h)
+                <input
+                  type="number"
+                  aria-label="Budget hours"
+                  min={1}
+                  value={editBudgetHours}
+                  onChange={(e) => setEditBudgetHours(e.target.value)}
+                  placeholder="None"
+                  className="w-20 rounded border border-slate-300 px-2 py-1"
+                />
+              </label>
               <button
                 type="submit"
                 className="rounded bg-slate-900 px-3 py-1 text-sm font-medium text-white"
@@ -282,11 +318,16 @@ export function ProjectManager({
             </form>
           ) : (
             <>
-              <span className="text-sm text-slate-700">
-                <span>{project.name}</span>{' '}
-                <span className="font-mono text-xs text-slate-500">
-                  ({formatDuration(project.totalSeconds)})
+              <span className="flex flex-col gap-0.5 text-sm text-slate-700">
+                <span>
+                  <span>{project.name}</span>{' '}
+                  <span className="font-mono text-xs text-slate-500">
+                    ({formatDuration(project.totalSeconds)})
+                  </span>
                 </span>
+                {project.budgetHours != null && (
+                  <BudgetBar used={project.totalSeconds} budgetHours={project.budgetHours} />
+                )}
               </span>
               <div className="flex gap-2">
                 <button
@@ -349,6 +390,18 @@ export function ProjectManager({
           value={newParentId}
           onChange={setNewParentId}
         />
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
+          Budget (h)
+          <input
+            type="number"
+            aria-label="Budget hours"
+            min={1}
+            value={newBudgetHours}
+            onChange={(e) => setNewBudgetHours(e.target.value)}
+            placeholder="None"
+            className="w-20 rounded border border-slate-300 px-2 py-1"
+          />
+        </label>
         <button
           type="submit"
           className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"

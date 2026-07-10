@@ -84,7 +84,7 @@ describe('ProjectManager', () => {
     await user.type(screen.getByLabelText('New project'), 'Lecture')
     await user.click(screen.getByRole('button', { name: 'Add project' }))
 
-    await waitFor(() => expect(projectsApi.createProject).toHaveBeenCalledWith('Lecture', null))
+    await waitFor(() => expect(projectsApi.createProject).toHaveBeenCalledWith('Lecture', null, null))
     expect(onProjectsChange).toHaveBeenCalled()
   })
 
@@ -102,7 +102,7 @@ describe('ProjectManager', () => {
     await user.selectOptions(screen.getAllByLabelText('Parent project')[0], 'Course')
     await user.click(screen.getByRole('button', { name: 'Add project' }))
 
-    await waitFor(() => expect(projectsApi.createProject).toHaveBeenCalledWith('Assignment', 1))
+    await waitFor(() => expect(projectsApi.createProject).toHaveBeenCalledWith('Assignment', 1, null))
   })
 
   it('shows an error when adding a project fails', async () => {
@@ -138,7 +138,7 @@ describe('ProjectManager', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }))
 
     await waitFor(() =>
-      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, 'Seminar', null),
+      expect(projectsApi.updateProject).toHaveBeenCalledWith(1, 'Seminar', null, null),
     )
   })
 
@@ -333,5 +333,42 @@ describe('ProjectManager', () => {
     await user.click(screen.getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => expect(projectsApi.removeMember).toHaveBeenCalledWith(1, 2))
+  })
+
+  it('shows a budget progress bar when the project has a budget', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([
+      project({ totalSeconds: 1800, budgetHours: 1 }),
+    ])
+
+    render(<ProjectManager />)
+
+    await waitFor(() => expect(screen.getByLabelText('Budget: 50% used')).toBeInTheDocument())
+    expect(screen.getByText('00:30:00 / 1h')).toBeInTheDocument()
+  })
+
+  it('does not show a budget bar when the project has no budget', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project({ budgetHours: null })])
+
+    render(<ProjectManager />)
+
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+    expect(screen.queryByLabelText(/Budget:/)).not.toBeInTheDocument()
+  })
+
+  it('adds a project with a budget', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
+    vi.mocked(projectsApi.createProject).mockResolvedValue(project({ budgetHours: 10 }))
+    const user = userEvent.setup()
+
+    render(<ProjectManager />)
+    await waitFor(() => expect(screen.getByText('No projects yet.')).toBeInTheDocument())
+
+    await user.type(screen.getByLabelText('New project'), 'Lecture')
+    await user.type(screen.getByLabelText('Budget hours'), '10')
+    await user.click(screen.getByRole('button', { name: 'Add project' }))
+
+    await waitFor(() =>
+      expect(projectsApi.createProject).toHaveBeenCalledWith('Lecture', null, 10),
+    )
   })
 })

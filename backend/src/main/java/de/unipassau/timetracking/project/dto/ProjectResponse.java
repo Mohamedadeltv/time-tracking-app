@@ -3,7 +3,7 @@ package de.unipassau.timetracking.project.dto;
 import de.unipassau.timetracking.project.Project;
 
 public record ProjectResponse(
-    Long id, String name, Long parentId, long totalSeconds, Long ownerId) {
+    Long id, String name, Long parentId, long totalSeconds, Long ownerId, Long budgetHours) {
 
   public static ProjectResponse from(Project project, long totalSeconds) {
     return new ProjectResponse(
@@ -11,6 +11,7 @@ public record ProjectResponse(
         project.getName(),
         project.getParent() != null ? project.getParent().getId() : null,
         totalSeconds,
-        project.getOwner().getId());
+        project.getOwner().getId(),
+        project.getBudgetHours());
   }
 }
