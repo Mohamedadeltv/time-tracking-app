@@ -30,7 +30,7 @@ describe('projects api', () => {
     expect(init?.method).toBe('GET')
   })
 
-  it('createProject posts the name and parentId to /api/projects', async () => {
+  it('createProject posts the name, parentId, and budgetHours to /api/projects', async () => {
     mockFetchOnce(201, { id: 1, name: 'Lecture', parentId: null, totalSeconds: 0 })
 
     await projectsApi.createProject('Lecture', 5)
@@ -38,16 +38,37 @@ describe('projects api', () => {
     const [path, init] = vi.mocked(fetch).mock.calls[0]
     expect(path).toBe('/api/projects')
     expect(init?.method).toBe('POST')
-    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Lecture', parentId: 5 })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      name: 'Lecture',
+      parentId: 5,
+      budgetHours: null,
+    })
   })
 
-  it('createProject defaults parentId to null', async () => {
+  it('createProject defaults parentId and budgetHours to null', async () => {
     mockFetchOnce(201, { id: 1, name: 'Lecture', parentId: null, totalSeconds: 0 })
 
     await projectsApi.createProject('Lecture')
 
     const [, init] = vi.mocked(fetch).mock.calls[0]
-    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Lecture', parentId: null })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      name: 'Lecture',
+      parentId: null,
+      budgetHours: null,
+    })
+  })
+
+  it('createProject sends budgetHours when provided', async () => {
+    mockFetchOnce(201, { id: 1, name: 'Lecture', parentId: null, totalSeconds: 0, budgetHours: 10 })
+
+    await projectsApi.createProject('Lecture', null, 10)
+
+    const [, init] = vi.mocked(fetch).mock.calls[0]
+    expect(JSON.parse(init?.body as string)).toEqual({
+      name: 'Lecture',
+      parentId: null,
+      budgetHours: 10,
+    })
   })
 
   it('updateProject puts the name and parentId to /api/projects/:id', async () => {
@@ -58,7 +79,11 @@ describe('projects api', () => {
     const [path, init] = vi.mocked(fetch).mock.calls[0]
     expect(path).toBe('/api/projects/1')
     expect(init?.method).toBe('PUT')
-    expect(JSON.parse(init?.body as string)).toEqual({ name: 'Renamed', parentId: 5 })
+    expect(JSON.parse(init?.body as string)).toEqual({
+      name: 'Renamed',
+      parentId: 5,
+      budgetHours: null,
+    })
   })
 
   it('deleteProject deletes /api/projects/:id', async () => {

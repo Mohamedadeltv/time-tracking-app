@@ -29,6 +29,8 @@ public class Project {
   @JoinColumn(name = "parent_id")
   private Project parent;
 
+  @Column private Long budgetHours;
+
   protected Project() {}
 
   public Project(AppUser owner, String name) {
@@ -58,5 +60,13 @@ public class Project {
 
   public void setParent(Project parent) {
     this.parent = parent;
+  }
+
+  public Long getBudgetHours() {
+    return budgetHours;
+  }
+
+  public void setBudgetHours(Long budgetHours) {
+    this.budgetHours = budgetHours;
   }
 }
