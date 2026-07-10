@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
+import { buildExportUrl, type ExportFormat } from '../api/export'
 import { getProjectOverview, type ProjectOverview } from '../api/overview'
 import { listProjects, type Project } from '../api/projects'
 import { listTasks, type Task } from '../api/tasks'
@@ -112,6 +113,11 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
   const [projectOverviewError, setProjectOverviewError] = useState<string | null>(null)
   const [loadingProjectOverview, setLoadingProjectOverview] = useState(false)
 
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('csv')
+  const [exportAllTime, setExportAllTime] = useState(true)
+  const [exportYear, setExportYear] = useState(new Date().getFullYear())
+  const [exportMonth, setExportMonth] = useState(new Date().getMonth() + 1)
+
   const [period, setPeriod] = useState<Period | null>(null)
   const [periodTasks, setPeriodTasks] = useState<Task[] | null>(null)
   const [periodError, setPeriodError] = useState<string | null>(null)
@@ -144,6 +150,20 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
     } finally {
       setLoadingProjectOverview(false)
     }
+  }
+
+  function handleExport() {
+    if (selectedProjectId == null) return
+    let from: string | undefined
+    let to: string | undefined
+    if (!exportAllTime) {
+      from = new Date(exportYear, exportMonth - 1, 1).toISOString()
+      to = new Date(exportYear, exportMonth, 1).toISOString()
+    }
+    const url = buildExportUrl(selectedProjectId, exportFormat, from, to)
+    const a = document.createElement('a')
+    a.href = url
+    a.click()
   }
 
   async function handleShowPeriod(nextPeriod: Period) {
@@ -234,6 +254,73 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
           </div>
         )}
       </div>
+
+      {selectedProjectId != null && (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-slate-900">Export tasks</h3>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="flex flex-col gap-1 text-sm text-slate-700">
+              Format
+              <select
+                aria-label="Export format"
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                className="rounded border border-slate-300 px-2 py-1"
+              >
+                <option value="csv">CSV</option>
+                <option value="json">JSON</option>
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-slate-700">
+              Period
+              <select
+                aria-label="Export period"
+                value={exportAllTime ? 'all' : 'month'}
+                onChange={(e) => setExportAllTime(e.target.value === 'all')}
+                className="rounded border border-slate-300 px-2 py-1"
+              >
+                <option value="all">All time</option>
+                <option value="month">Specific month</option>
+              </select>
+            </label>
+            {!exportAllTime && (
+              <>
+                <label className="flex flex-col gap-1 text-sm text-slate-700">
+                  Year
+                  <input
+                    type="number"
+                    aria-label="Export year"
+                    value={exportYear}
+                    onChange={(e) => setExportYear(Number(e.target.value))}
+                    min={2000}
+                    max={2100}
+                    className="w-24 rounded border border-slate-300 px-2 py-1"
+                  />
+                </label>
+                <label className="flex flex-col gap-1 text-sm text-slate-700">
+                  Month
+                  <input
+                    type="number"
+                    aria-label="Export month"
+                    value={exportMonth}
+                    onChange={(e) => setExportMonth(Number(e.target.value))}
+                    min={1}
+                    max={12}
+                    className="w-20 rounded border border-slate-300 px-2 py-1"
+                  />
+                </label>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={handleExport}
+              className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+            >
+              Download
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-slate-900">By period</h3>

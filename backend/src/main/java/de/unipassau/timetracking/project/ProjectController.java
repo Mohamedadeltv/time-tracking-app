@@ -1,6 +1,9 @@
 package de.unipassau.timetracking.project;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.unipassau.timetracking.project.dto.CreateProjectRequest;
+import de.unipassau.timetracking.project.dto.ExportRow;
 import de.unipassau.timetracking.project.dto.InviteMemberRequest;
 import de.unipassau.timetracking.project.dto.MemberResponse;
 import de.unipassau.timetracking.project.dto.ProjectOverviewResponse;
@@ -15,6 +18,7 @@ import de.unipassau.timetracking.user.AppUser;
 import de.unipassau.timetracking.user.AppUserRepository;
 import de.unipassau.timetracking.user.UserNotFoundException;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -25,6 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,16 +54,19 @@ public class ProjectController {
   private final ProjectMemberRepository projectMemberRepository;
   private final TaskRepository taskRepository;
   private final AppUserRepository appUserRepository;
+  private final ObjectMapper objectMapper;
 
   public ProjectController(
       ProjectRepository projectRepository,
       ProjectMemberRepository projectMemberRepository,
       TaskRepository taskRepository,
-      AppUserRepository appUserRepository) {
+      AppUserRepository appUserRepository,
+      ObjectMapper objectMapper) {
     this.projectRepository = projectRepository;
     this.projectMemberRepository = projectMemberRepository;
     this.taskRepository = taskRepository;
     this.appUserRepository = appUserRepository;
+    this.objectMapper = objectMapper;
   }
 
   @PostMapping
@@ -170,6 +180,50 @@ public class ProjectController {
         tasks.stream().map(TaskResponse::from).toList());
   }
 
+  @GetMapping("/{id}/export")
+  public ResponseEntity<byte[]> export(
+      @PathVariable Long id,
+      @RequestParam(required = false, defaultValue = "csv") String format,
+      @RequestParam(required = false) String from,
+      @RequestParam(required = false) String to,
+      Authentication authentication) {
+    AppUser user = currentUser(authentication);
+    Project project =
+        projectMemberRepository
+            .findAccessibleProjectByIdAndUser(id, user)
+            .orElseThrow(ProjectNotFoundException::new);
+    Instant fromInstant = TimeRange.parse(from);
+    Instant toInstant = TimeRange.parse(to);
+    TimeRange.validate(fromInstant, toInstant);
+
+    List<Project> all = projectMemberRepository.findAccessibleProjectsByUser(user);
+    Set<Project> subtree = subtreeOf(project, childrenByParentId(all));
+    List<Task> tasks =
+        taskRepository.findDistinctByProjectsIn(subtree).stream()
+            .filter(task -> TimeRange.contains(task, fromInstant, toInstant))
+            .sorted(Comparator.comparing(Task::getStartTime))
+            .toList();
+
+    List<ExportRow> rows = tasks.stream().map(this::toExportRow).toList();
+    String slug = project.getName().replaceAll("[^a-zA-Z0-9_-]", "_");
+
+    if ("json".equalsIgnoreCase(format)) {
+      try {
+        byte[] body = objectMapper.writeValueAsBytes(rows);
+        return ResponseEntity.ok()
+            .headers(downloadHeaders(slug + "-tasks.json", MediaType.APPLICATION_JSON))
+            .body(body);
+      } catch (JsonProcessingException e) {
+        throw new IllegalStateException("JSON serialization failed", e);
+      }
+    }
+
+    byte[] body = buildCsv(rows).getBytes(StandardCharsets.UTF_8);
+    return ResponseEntity.ok()
+        .headers(downloadHeaders(slug + "-tasks.csv", new MediaType("text", "csv")))
+        .body(body);
+  }
+
   @PostMapping("/{id}/members")
   public ResponseEntity<MemberResponse> inviteMember(
       @PathVariable Long id,
@@ -224,6 +278,52 @@ public class ProjectController {
     return projectMemberRepository.findByProject(project).stream()
         .map(MemberResponse::from)
         .toList();
+  }
+
+  private ExportRow toExportRow(Task task) {
+    List<String> projectNames = task.getProjects().stream().map(Project::getName).sorted().toList();
+    long durationSeconds =
+        task.getEndTime() != null
+            ? Duration.between(task.getStartTime(), task.getEndTime()).getSeconds()
+            : 0;
+    return new ExportRow(
+        task.getStartTime().toString(),
+        task.getEndTime() != null ? task.getEndTime().toString() : "",
+        durationSeconds,
+        task.getDescription() != null ? task.getDescription() : "",
+        projectNames,
+        task.getOwner().getEmail());
+  }
+
+  private String buildCsv(List<ExportRow> rows) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("startTime,endTime,durationSeconds,description,projects,user\r\n");
+    for (ExportRow row : rows) {
+      sb.append(row.startTime()).append(',');
+      sb.append(row.endTime()).append(',');
+      sb.append(row.durationSeconds()).append(',');
+      sb.append(csvField(row.description())).append(',');
+      sb.append(csvField(String.join("|", row.projects()))).append(',');
+      sb.append(row.user()).append("\r\n");
+    }
+    return sb.toString();
+  }
+
+  private String csvField(String value) {
+    if (value.contains(",")
+        || value.contains("\"")
+        || value.contains("\r")
+        || value.contains("\n")) {
+      return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+    return value;
+  }
+
+  private HttpHeaders downloadHeaders(String filename, MediaType contentType) {
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(contentType);
+    headers.setContentDisposition(ContentDisposition.attachment().filename(filename).build());
+    return headers;
   }
 
   private void requireOwner(Project project, AppUser user) {
