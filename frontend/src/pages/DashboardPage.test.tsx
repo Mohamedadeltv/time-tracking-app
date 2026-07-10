@@ -141,7 +141,7 @@ describe('DashboardPage', () => {
     const input = screen.getByLabelText('Timezone')
     await user.clear(input)
     await user.type(input, 'Europe/Berlin')
-    await user.click(screen.getByRole('button', { name: 'Save timezone' }))
+    await user.click(screen.getByRole('button', { name: 'Apply timezone' }))
 
     await waitFor(() => expect(screen.getByText('Timezone saved.')).toBeInTheDocument())
     expect(authApi.setTimezone).toHaveBeenCalledWith('Europe/Berlin')
@@ -156,7 +156,7 @@ describe('DashboardPage', () => {
     const input = screen.getByLabelText('Timezone')
     await user.clear(input)
     await user.type(input, 'bad/tz')
-    await user.click(screen.getByRole('button', { name: 'Save timezone' }))
+    await user.click(screen.getByRole('button', { name: 'Apply timezone' }))
 
     await waitFor(() => expect(screen.getByText('Unknown timezone: bad/tz')).toBeInTheDocument())
   })

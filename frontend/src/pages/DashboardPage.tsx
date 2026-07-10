@@ -103,7 +103,7 @@ export function DashboardPage() {
           type="submit"
           className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
         >
-          Save timezone
+          Apply timezone
         </button>
       </form>
 
