@@ -3,10 +3,15 @@ import { ApiError } from '../api/client'
 import {
   createProject,
   deleteProject,
+  inviteMember,
+  listMembers,
   listProjects,
+  removeMember,
   updateProject,
+  type Member,
   type Project,
 } from '../api/projects'
+import { useAuth } from '../auth/useAuth'
 import { formatDuration } from '../utils/duration'
 
 function descendantIds(projects: Project[], rootId: number): Set<number> {
@@ -62,6 +67,93 @@ function ParentProjectSelect({
   )
 }
 
+function MembersPanel({
+  projectId,
+  isOwner,
+}: {
+  projectId: number
+  isOwner: boolean
+}) {
+  const [members, setMembers] = useState<Member[]>([])
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  function load() {
+    listMembers(projectId)
+      .then(setMembers)
+      .catch(() => setError('Could not load members.'))
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId])
+
+  async function handleInvite(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+    try {
+      await inviteMember(projectId, inviteEmail.trim())
+      setInviteEmail('')
+      load()
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not invite user.')
+    }
+  }
+
+  async function handleRemove(userId: number) {
+    setError(null)
+    try {
+      await removeMember(projectId, userId)
+      load()
+    } catch {
+      setError('Could not remove member.')
+    }
+  }
+
+  return (
+    <div className="ml-4 mt-2 flex flex-col gap-2 rounded border border-slate-200 bg-slate-50 p-3">
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <ul aria-label="Members list" className="flex flex-col gap-1">
+        {members.map((m) => (
+          <li key={m.userId} className="flex items-center justify-between text-sm">
+            <span>
+              {m.email}{' '}
+              <span className="text-xs text-slate-400">({m.role.toLowerCase()})</span>
+            </span>
+            {isOwner && m.role !== 'OWNER' && (
+              <button
+                onClick={() => handleRemove(m.userId)}
+                className="text-xs text-red-600 underline"
+              >
+                Remove
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      {isOwner && (
+        <form onSubmit={handleInvite} className="flex gap-2">
+          <input
+            type="email"
+            required
+            placeholder="Invite by email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            className="flex-1 rounded border border-slate-300 px-2 py-1 text-sm"
+          />
+          <button
+            type="submit"
+            className="rounded bg-slate-900 px-3 py-1 text-xs font-medium text-white"
+          >
+            Invite
+          </button>
+        </form>
+      )}
+    </div>
+  )
+}
+
 export function ProjectManager({
   refreshSignal,
   onProjectsChange,
@@ -69,6 +161,7 @@ export function ProjectManager({
   refreshSignal?: number
   onProjectsChange?: () => void
 } = {}) {
+  const { user } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,6 +170,7 @@ export function ProjectManager({
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [editParentId, setEditParentId] = useState<number | null>(null)
+  const [managingMembersId, setManagingMembersId] = useState<number | null>(null)
 
   function load() {
     listProjects()
@@ -133,6 +227,7 @@ export function ProjectManager({
     setError(null)
     try {
       await deleteProject(id)
+      if (managingMembersId === id) setManagingMembersId(null)
       load()
       onProjectsChange?.()
     } catch {
@@ -146,6 +241,8 @@ export function ProjectManager({
 
   function renderProject(project: Project) {
     const children = childrenOf(project.id)
+    const isOwner = user?.id === project.ownerId
+    const showMembers = managingMembersId === project.id
     return (
       <li key={project.id}>
         <div className="flex items-center justify-between gap-2 border-b py-1">
@@ -193,21 +290,35 @@ export function ProjectManager({
               </span>
               <div className="flex gap-2">
                 <button
-                  onClick={() => startEditing(project)}
+                  onClick={() =>
+                    setManagingMembersId(showMembers ? null : project.id)
+                  }
                   className="text-sm text-slate-600 underline"
+                  aria-expanded={showMembers}
                 >
-                  Rename
+                  Members
                 </button>
-                <button
-                  onClick={() => handleDelete(project.id)}
-                  className="text-sm text-red-600 underline"
-                >
-                  Delete
-                </button>
+                {isOwner && (
+                  <>
+                    <button
+                      onClick={() => startEditing(project)}
+                      className="text-sm text-slate-600 underline"
+                    >
+                      Rename
+                    </button>
+                    <button
+                      onClick={() => handleDelete(project.id)}
+                      className="text-sm text-red-600 underline"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
         </div>
+        {showMembers && <MembersPanel projectId={project.id} isOwner={isOwner} />}
         {children.length > 0 && (
           <ul className="ml-4 flex flex-col gap-2">{children.map(renderProject)}</ul>
         )}

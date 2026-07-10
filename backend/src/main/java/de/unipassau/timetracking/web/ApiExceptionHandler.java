@@ -1,5 +1,6 @@
 package de.unipassau.timetracking.web;
 
+import de.unipassau.timetracking.project.AlreadyAMemberException;
 import de.unipassau.timetracking.project.InvalidProjectHierarchyException;
 import de.unipassau.timetracking.project.ProjectNameAlreadyInUseException;
 import de.unipassau.timetracking.project.ProjectNotFoundException;
@@ -8,6 +9,7 @@ import de.unipassau.timetracking.task.NoRunningTaskException;
 import de.unipassau.timetracking.task.TaskNotFoundException;
 import de.unipassau.timetracking.user.EmailAlreadyInUseException;
 import de.unipassau.timetracking.user.InvalidCurrentPasswordException;
+import de.unipassau.timetracking.user.UserNotFoundException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
@@ -74,6 +76,16 @@ public class ApiExceptionHandler {
   public ResponseEntity<Map<String, String>> handleInvalidProjectHierarchy(
       InvalidProjectHierarchyException ex) {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(AlreadyAMemberException.class)
+  public ResponseEntity<Map<String, String>> handleAlreadyAMember(AlreadyAMemberException ex) {
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(UserNotFoundException.class)
+  public ResponseEntity<Map<String, String>> handleUserNotFound(UserNotFoundException ex) {
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
   }
 
   @ExceptionHandler(AuthenticationException.class)

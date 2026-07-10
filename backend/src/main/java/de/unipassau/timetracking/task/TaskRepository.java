@@ -18,4 +18,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
   List<Task> findByOwnerAndProjectsContaining(AppUser owner, Project project);
 
   List<Task> findDistinctByOwnerAndProjectsIn(AppUser owner, Collection<Project> projects);
+
+  List<Task> findDistinctByProjectsIn(Collection<Project> projects);
 }

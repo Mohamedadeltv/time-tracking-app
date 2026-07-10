@@ -1,6 +1,8 @@
 package de.unipassau.timetracking.project;
 
 import de.unipassau.timetracking.project.dto.CreateProjectRequest;
+import de.unipassau.timetracking.project.dto.InviteMemberRequest;
+import de.unipassau.timetracking.project.dto.MemberResponse;
 import de.unipassau.timetracking.project.dto.ProjectOverviewResponse;
 import de.unipassau.timetracking.project.dto.ProjectResponse;
 import de.unipassau.timetracking.project.dto.UpdateProjectRequest;
@@ -11,6 +13,7 @@ import de.unipassau.timetracking.task.TimeRange;
 import de.unipassau.timetracking.task.dto.TaskResponse;
 import de.unipassau.timetracking.user.AppUser;
 import de.unipassau.timetracking.user.AppUserRepository;
+import de.unipassau.timetracking.user.UserNotFoundException;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import java.time.Instant;
@@ -41,14 +44,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProjectController {
 
   private final ProjectRepository projectRepository;
+  private final ProjectMemberRepository projectMemberRepository;
   private final TaskRepository taskRepository;
   private final AppUserRepository appUserRepository;
 
   public ProjectController(
       ProjectRepository projectRepository,
+      ProjectMemberRepository projectMemberRepository,
       TaskRepository taskRepository,
       AppUserRepository appUserRepository) {
     this.projectRepository = projectRepository;
+    this.projectMemberRepository = projectMemberRepository;
     this.taskRepository = taskRepository;
     this.appUserRepository = appUserRepository;
   }
@@ -63,19 +69,17 @@ public class ProjectController {
     Project project = new Project(owner, request.name());
     project.setParent(resolveParent(request.parentId(), owner));
     projectRepository.save(project);
-    // A brand-new project cannot yet be associated with any task, so its rolled-up total is 0.
+    projectMemberRepository.save(new ProjectMember(project, owner, ProjectRole.OWNER));
     return ResponseEntity.status(201).body(ProjectResponse.from(project, 0));
   }
 
   @GetMapping
   public List<ProjectResponse> list(Authentication authentication) {
-    AppUser owner = currentUser(authentication);
-    List<Project> all = projectRepository.findByOwnerOrderByNameAsc(owner);
+    AppUser user = currentUser(authentication);
+    List<Project> all = projectMemberRepository.findAccessibleProjectsByUser(user);
     Map<Long, List<Project>> childrenByParentId = childrenByParentId(all);
     return all.stream()
-        .map(
-            project ->
-                ProjectResponse.from(project, totalSecondsFor(project, childrenByParentId, owner)))
+        .map(project -> ProjectResponse.from(project, totalSecondsFor(project, childrenByParentId)))
         .toList();
   }
 
@@ -99,15 +103,11 @@ public class ProjectController {
     project.setParent(newParent);
     projectRepository.save(project);
 
-    List<Project> all = projectRepository.findByOwnerOrderByNameAsc(owner);
+    List<Project> all = projectMemberRepository.findAccessibleProjectsByUser(owner);
     return ResponseEntity.ok(
-        ProjectResponse.from(project, totalSecondsFor(project, childrenByParentId(all), owner)));
+        ProjectResponse.from(project, totalSecondsFor(project, childrenByParentId(all))));
   }
 
-  /**
-   * Deleting a project drops its task associations rather than the tasks themselves, and orphans
-   * (rather than cascade-deletes) its direct subprojects by promoting them to top-level.
-   */
   @DeleteMapping("/{id}")
   public ResponseEntity<Void> delete(@PathVariable Long id, Authentication authentication) {
     AppUser owner = currentUser(authentication);
@@ -115,7 +115,7 @@ public class ProjectController {
         projectRepository.findByIdAndOwner(id, owner).orElseThrow(ProjectNotFoundException::new);
 
     List<Project> children =
-        projectRepository.findByOwnerOrderByNameAsc(owner).stream()
+        projectMemberRepository.findAccessibleProjectsByUser(owner).stream()
             .filter(p -> p.getParent() != null && p.getParent().getId().equals(project.getId()))
             .toList();
     children.forEach(child -> child.setParent(null));
@@ -125,32 +125,33 @@ public class ProjectController {
     tasks.forEach(task -> task.getProjects().remove(project));
     taskRepository.saveAll(tasks);
 
+    projectMemberRepository.deleteByProject(project);
     projectRepository.delete(project);
     return ResponseEntity.noContent().build();
   }
 
-  /**
-   * The tasks of a project and all its descendant subprojects (deduplicated, see {@link
-   * #totalSecondsFor}), optionally restricted to those starting within {@code from}/{@code to},
-   * together with the rolled-up total over that same filtered set.
-   */
   @GetMapping("/{id}/overview")
   public ProjectOverviewResponse overview(
       @PathVariable Long id,
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
+      @RequestParam(required = false) Long userId,
       Authentication authentication) {
-    AppUser owner = currentUser(authentication);
+    AppUser user = currentUser(authentication);
     Project project =
-        projectRepository.findByIdAndOwner(id, owner).orElseThrow(ProjectNotFoundException::new);
+        projectMemberRepository
+            .findAccessibleProjectByIdAndUser(id, user)
+            .orElseThrow(ProjectNotFoundException::new);
     Instant fromInstant = TimeRange.parse(from);
     Instant toInstant = TimeRange.parse(to);
     TimeRange.validate(fromInstant, toInstant);
 
-    List<Project> all = projectRepository.findByOwnerOrderByNameAsc(owner);
+    List<Project> all = projectMemberRepository.findAccessibleProjectsByUser(user);
     Set<Project> subtree = subtreeOf(project, childrenByParentId(all));
+
     List<Task> tasks =
-        taskRepository.findDistinctByOwnerAndProjectsIn(owner, subtree).stream()
+        taskRepository.findDistinctByProjectsIn(subtree).stream()
+            .filter(task -> userId == null || task.getOwner().getId().equals(userId))
             .filter(task -> TimeRange.contains(task, fromInstant, toInstant))
             .sorted(Comparator.comparing(Task::getStartTime).reversed())
             .toList();
@@ -167,6 +168,68 @@ public class ProjectController {
         project.getName(),
         totalSeconds,
         tasks.stream().map(TaskResponse::from).toList());
+  }
+
+  @PostMapping("/{id}/members")
+  public ResponseEntity<MemberResponse> inviteMember(
+      @PathVariable Long id,
+      @Valid @RequestBody InviteMemberRequest request,
+      Authentication authentication) {
+    AppUser requester = currentUser(authentication);
+    Project project =
+        projectMemberRepository
+            .findAccessibleProjectByIdAndUser(id, requester)
+            .orElseThrow(ProjectNotFoundException::new);
+    requireOwner(project, requester);
+
+    AppUser invitee =
+        appUserRepository.findByEmail(request.email()).orElseThrow(UserNotFoundException::new);
+    if (projectMemberRepository.existsByProjectAndUser(project, invitee)) {
+      throw new AlreadyAMemberException();
+    }
+    ProjectMember member = new ProjectMember(project, invitee, ProjectRole.MEMBER);
+    projectMemberRepository.save(member);
+    return ResponseEntity.status(201).body(MemberResponse.from(member));
+  }
+
+  @DeleteMapping("/{id}/members/{userId}")
+  public ResponseEntity<Void> removeMember(
+      @PathVariable Long id, @PathVariable Long userId, Authentication authentication) {
+    AppUser requester = currentUser(authentication);
+    Project project =
+        projectMemberRepository
+            .findAccessibleProjectByIdAndUser(id, requester)
+            .orElseThrow(ProjectNotFoundException::new);
+    requireOwner(project, requester);
+
+    AppUser target = appUserRepository.findById(userId).orElseThrow(UserNotFoundException::new);
+    if (target.getId().equals(requester.getId())) {
+      throw new AlreadyAMemberException();
+    }
+    ProjectMember membership =
+        projectMemberRepository
+            .findByProjectAndUser(project, target)
+            .orElseThrow(UserNotFoundException::new);
+    projectMemberRepository.delete(membership);
+    return ResponseEntity.noContent().build();
+  }
+
+  @GetMapping("/{id}/members")
+  public List<MemberResponse> listMembers(@PathVariable Long id, Authentication authentication) {
+    AppUser user = currentUser(authentication);
+    Project project =
+        projectMemberRepository
+            .findAccessibleProjectByIdAndUser(id, user)
+            .orElseThrow(ProjectNotFoundException::new);
+    return projectMemberRepository.findByProject(project).stream()
+        .map(MemberResponse::from)
+        .toList();
+  }
+
+  private void requireOwner(Project project, AppUser user) {
+    if (!project.getOwner().getId().equals(user.getId())) {
+      throw new ProjectNotFoundException();
+    }
   }
 
   private Project resolveParent(Long parentId, AppUser owner) {
@@ -194,16 +257,9 @@ public class ProjectController {
         .collect(Collectors.groupingBy(p -> p.getParent().getId()));
   }
 
-  /**
-   * Sums the durations of every distinct completed task associated with this project or any of its
-   * descendant subprojects. Collecting the tasks into a {@link Set} first - rather than summing
-   * per-project - is what makes a task tagged to multiple subprojects of the same parent count only
-   * once towards that parent.
-   */
-  private long totalSecondsFor(
-      Project root, Map<Long, List<Project>> childrenByParentId, AppUser owner) {
+  private long totalSecondsFor(Project root, Map<Long, List<Project>> childrenByParentId) {
     Set<Project> subtree = subtreeOf(root, childrenByParentId);
-    return taskRepository.findDistinctByOwnerAndProjectsIn(owner, subtree).stream()
+    return taskRepository.findDistinctByProjectsIn(subtree).stream()
         .filter(task -> task.getEndTime() != null)
         .mapToLong(task -> Duration.between(task.getStartTime(), task.getEndTime()).getSeconds())
         .sum();

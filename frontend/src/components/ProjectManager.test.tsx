@@ -6,6 +6,9 @@ import { ApiError } from '../api/client'
 import * as projectsApi from '../api/projects'
 
 vi.mock('../api/projects')
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 99, email: 'owner@example.com' } }),
+}))
 
 function project(overrides: Partial<projectsApi.Project> = {}): projectsApi.Project {
   return {
@@ -13,6 +16,16 @@ function project(overrides: Partial<projectsApi.Project> = {}): projectsApi.Proj
     name: 'Lecture',
     parentId: null,
     totalSeconds: 0,
+    ownerId: 99,
+    ...overrides,
+  }
+}
+
+function member(overrides: Partial<projectsApi.Member> = {}): projectsApi.Member {
+  return {
+    userId: 99,
+    email: 'owner@example.com',
+    role: 'OWNER',
     ...overrides,
   }
 }
@@ -229,5 +242,96 @@ describe('ProjectManager', () => {
     render(<ProjectManager />)
 
     await waitFor(() => expect(screen.getByText('Could not load projects.')).toBeInTheDocument())
+  })
+
+  it('non-owner does not see Rename or Delete buttons', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project({ ownerId: 42 })])
+
+    render(<ProjectManager />)
+
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Rename' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Delete' })).not.toBeInTheDocument()
+  })
+
+  it('opens the members panel when clicking Members', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([member()])
+    const user = userEvent.setup()
+
+    render(<ProjectManager />)
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Members' }))
+
+    await waitFor(() =>
+      expect(screen.getByRole('list', { name: 'Members list' })).toBeInTheDocument(),
+    )
+    expect(screen.getByText('owner@example.com')).toBeInTheDocument()
+  })
+
+  it('owner can invite a member', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([member()])
+    vi.mocked(projectsApi.inviteMember).mockResolvedValue(
+      member({ userId: 2, email: 'alice@example.com', role: 'MEMBER' }),
+    )
+    const user = userEvent.setup()
+
+    render(<ProjectManager />)
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Members' }))
+    await waitFor(() =>
+      expect(screen.getByRole('list', { name: 'Members list' })).toBeInTheDocument(),
+    )
+
+    await user.type(screen.getByPlaceholderText('Invite by email'), 'alice@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() =>
+      expect(projectsApi.inviteMember).toHaveBeenCalledWith(1, 'alice@example.com'),
+    )
+  })
+
+  it('shows an error when invite fails', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([member()])
+    vi.mocked(projectsApi.inviteMember).mockRejectedValue(
+      new ApiError(404, 'User not found'),
+    )
+    const user = userEvent.setup()
+
+    render(<ProjectManager />)
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Members' }))
+    await waitFor(() =>
+      expect(screen.getByRole('list', { name: 'Members list' })).toBeInTheDocument(),
+    )
+
+    await user.type(screen.getByPlaceholderText('Invite by email'), 'nobody@example.com')
+    await user.click(screen.getByRole('button', { name: 'Invite' }))
+
+    await waitFor(() => expect(screen.getByText('User not found')).toBeInTheDocument())
+  })
+
+  it('owner can remove a member', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([
+      member(),
+      member({ userId: 2, email: 'alice@example.com', role: 'MEMBER' }),
+    ])
+    vi.mocked(projectsApi.removeMember).mockResolvedValue(undefined)
+    const user = userEvent.setup()
+
+    render(<ProjectManager />)
+    await waitFor(() => expect(projectList().getByText('Lecture')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Members' }))
+    await waitFor(() => expect(screen.getByText('alice@example.com')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Remove' }))
+
+    await waitFor(() => expect(projectsApi.removeMember).toHaveBeenCalledWith(1, 2))
   })
 })

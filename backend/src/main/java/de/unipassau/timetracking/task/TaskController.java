@@ -1,8 +1,8 @@
 package de.unipassau.timetracking.task;
 
 import de.unipassau.timetracking.project.Project;
+import de.unipassau.timetracking.project.ProjectMemberRepository;
 import de.unipassau.timetracking.project.ProjectNotFoundException;
-import de.unipassau.timetracking.project.ProjectRepository;
 import de.unipassau.timetracking.security.AppUserPrincipal;
 import de.unipassau.timetracking.task.dto.CreateTaskRequest;
 import de.unipassau.timetracking.task.dto.StartTaskRequest;
@@ -39,15 +39,15 @@ import org.springframework.web.bind.annotation.RestController;
 public class TaskController {
 
   private final TaskRepository taskRepository;
-  private final ProjectRepository projectRepository;
+  private final ProjectMemberRepository projectMemberRepository;
   private final AppUserRepository appUserRepository;
 
   public TaskController(
       TaskRepository taskRepository,
-      ProjectRepository projectRepository,
+      ProjectMemberRepository projectMemberRepository,
       AppUserRepository appUserRepository) {
     this.taskRepository = taskRepository;
-    this.projectRepository = projectRepository;
+    this.projectMemberRepository = projectMemberRepository;
     this.appUserRepository = appUserRepository;
   }
 
@@ -171,14 +171,16 @@ public class TaskController {
     return appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
   }
 
-  private Set<Project> resolveProjects(Set<Long> projectIds, AppUser owner) {
+  private Set<Project> resolveProjects(Set<Long> projectIds, AppUser user) {
     if (projectIds == null || projectIds.isEmpty()) {
       return new HashSet<>();
     }
     Set<Project> projects = new HashSet<>();
     for (Long id : projectIds) {
       projects.add(
-          projectRepository.findByIdAndOwner(id, owner).orElseThrow(ProjectNotFoundException::new));
+          projectMemberRepository
+              .findAccessibleProjectByIdAndUser(id, user)
+              .orElseThrow(ProjectNotFoundException::new));
     }
     return projects;
   }

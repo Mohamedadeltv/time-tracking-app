@@ -17,6 +17,7 @@ function project(overrides: Partial<projectsApi.Project> = {}): projectsApi.Proj
     name: 'Course',
     parentId: null,
     totalSeconds: 0,
+    ownerId: 1,
     ...overrides,
   }
 }
