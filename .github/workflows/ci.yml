@@ -24,6 +24,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: backend-coverage
@@ -57,6 +58,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: frontend-coverage
@@ -106,6 +108,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
