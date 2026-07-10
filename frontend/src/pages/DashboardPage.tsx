@@ -8,7 +8,7 @@ import { ProjectManager } from '../components/ProjectManager'
 import { Overview } from '../components/Overview'
 
 export function DashboardPage() {
-  const { user, logout, changePassword } = useAuth()
+  const { user, logout, changePassword, setTimezone } = useAuth()
   const navigate = useNavigate()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -17,10 +17,25 @@ export function DashboardPage() {
   const [submitting, setSubmitting] = useState(false)
   const [taskListRefresh, setTaskListRefresh] = useState(0)
   const [projectManagerRefresh, setProjectManagerRefresh] = useState(0)
+  const [timezoneInput, setTimezoneInput] = useState(user?.timezone ?? '')
+  const [timezoneError, setTimezoneError] = useState<string | null>(null)
+  const [timezoneSaved, setTimezoneSaved] = useState(false)
 
   async function handleLogout() {
     await logout()
     navigate('/login')
+  }
+
+  async function handleSetTimezone(event: FormEvent) {
+    event.preventDefault()
+    setTimezoneError(null)
+    setTimezoneSaved(false)
+    try {
+      await setTimezone(timezoneInput.trim())
+      setTimezoneSaved(true)
+    } catch (err) {
+      setTimezoneError(err instanceof ApiError ? err.message : 'Could not save timezone.')
+    }
   }
 
   async function handleChangePassword(event: FormEvent) {
@@ -62,6 +77,35 @@ export function DashboardPage() {
       />
 
       <Overview projectsRefreshSignal={projectManagerRefresh} />
+
+      <form
+        onSubmit={handleSetTimezone}
+        className="flex w-full max-w-sm flex-col gap-4 rounded-lg bg-white p-8 shadow"
+      >
+        <h2 className="text-lg font-semibold text-slate-900">Timezone</h2>
+        <p className="text-xs text-slate-500">
+          Current: {user?.timezone ?? 'Browser default'}
+        </p>
+        {timezoneError && <p className="text-sm text-red-600">{timezoneError}</p>}
+        {timezoneSaved && <p className="text-sm text-green-700">Timezone saved.</p>}
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
+          IANA timezone (e.g. Europe/Berlin)
+          <input
+            type="text"
+            aria-label="Timezone"
+            value={timezoneInput}
+            onChange={(e) => setTimezoneInput(e.target.value)}
+            placeholder="Europe/Berlin"
+            className="rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+        >
+          Save timezone
+        </button>
+      </form>
 
       <form
         onSubmit={handleChangePassword}

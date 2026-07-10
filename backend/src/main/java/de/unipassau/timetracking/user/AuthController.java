@@ -4,10 +4,13 @@ import de.unipassau.timetracking.security.AppUserPrincipal;
 import de.unipassau.timetracking.user.dto.ChangePasswordRequest;
 import de.unipassau.timetracking.user.dto.LoginRequest;
 import de.unipassau.timetracking.user.dto.RegisterRequest;
+import de.unipassau.timetracking.user.dto.SetTimezoneRequest;
 import de.unipassau.timetracking.user.dto.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,6 +22,7 @@ import org.springframework.security.web.authentication.logout.SecurityContextLog
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -89,6 +93,21 @@ public class AuthController {
   public ResponseEntity<UserResponse> me(Authentication authentication) {
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
     AppUser user = appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
+    return ResponseEntity.ok(UserResponse.from(user));
+  }
+
+  @PutMapping("/timezone")
+  public ResponseEntity<UserResponse> setTimezone(
+      Authentication authentication, @Valid @RequestBody SetTimezoneRequest request) {
+    try {
+      ZoneId.of(request.timezone());
+    } catch (DateTimeException e) {
+      throw new InvalidTimezoneException(request.timezone());
+    }
+    AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
+    AppUser user = appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
+    user.setPreferredTimezone(request.timezone());
+    appUserRepository.save(user);
     return ResponseEntity.ok(UserResponse.from(user));
   }
 

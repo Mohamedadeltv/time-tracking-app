@@ -34,8 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await authApi.changePassword(currentPassword, newPassword)
   }
 
+  async function setTimezone(timezone: string) {
+    const updated = await authApi.setTimezone(timezone)
+    setUser(updated)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, register, login, logout, changePassword }}>
+    <AuthContext.Provider
+      value={{ user, loading, register, login, logout, changePassword, setTimezone }}
+    >
       {children}
     </AuthContext.Provider>
   )

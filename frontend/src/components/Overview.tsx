@@ -4,7 +4,17 @@ import { buildExportUrl, type ExportFormat } from '../api/export'
 import { getProjectOverview, type ProjectOverview } from '../api/overview'
 import { listProjects, type Project } from '../api/projects'
 import { listTasks, type Task } from '../api/tasks'
+import { useAuth } from '../auth/useAuth'
 import { formatDuration } from '../utils/duration'
+import {
+  addDays,
+  addOneDay,
+  addOneMonth,
+  formatInTimezone,
+  startOfDayInTimezone,
+  startOfMonthInTimezone,
+  startOfWeekInTimezone,
+} from '../utils/timezone'
 
 type Period = 'day' | 'week' | 'month'
 
@@ -14,37 +24,17 @@ const PERIOD_LABELS: Record<Period, string> = {
   month: 'This month',
 }
 
-function startOfPeriod(now: Date, period: Period): Date {
+function periodRange(period: Period, timezone: string): { from: string; to: string } {
   if (period === 'day') {
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const start = startOfDayInTimezone(timezone)
+    return { from: start.toISOString(), to: addOneDay(start).toISOString() }
   }
   if (period === 'week') {
-    const daysSinceMonday = (now.getDay() + 6) % 7
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday)
+    const start = startOfWeekInTimezone(timezone)
+    return { from: start.toISOString(), to: addDays(start, 7).toISOString() }
   }
-  return new Date(now.getFullYear(), now.getMonth(), 1)
-}
-
-function endOfPeriod(start: Date, period: Period): Date {
-  const end = new Date(start)
-  if (period === 'day') {
-    end.setDate(end.getDate() + 1)
-  } else if (period === 'week') {
-    end.setDate(end.getDate() + 7)
-  } else {
-    end.setMonth(end.getMonth() + 1)
-  }
-  return end
-}
-
-function periodRange(period: Period): { from: string; to: string } {
-  const start = startOfPeriod(new Date(), period)
-  const end = endOfPeriod(start, period)
-  return { from: start.toISOString(), to: end.toISOString() }
-}
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString()
+  const start = startOfMonthInTimezone(timezone)
+  return { from: start.toISOString(), to: addOneMonth(start, timezone).toISOString() }
 }
 
 function totalSecondsOf(tasks: Task[]): number {
@@ -75,7 +65,7 @@ function flattenHierarchy(projects: Project[]): { project: Project; depth: numbe
   return result
 }
 
-function TaskTable({ tasks }: { tasks: Task[] }) {
+function TaskTable({ tasks, timezone }: { tasks: Task[]; timezone: string }) {
   return (
     <table className="w-full text-left text-sm">
       <thead>
@@ -90,8 +80,10 @@ function TaskTable({ tasks }: { tasks: Task[] }) {
         {tasks.map((task) => (
           <tr key={task.id} className="border-b">
             <td className="py-1 pr-2">{task.description || 'Untitled task'}</td>
-            <td className="py-1 pr-2">{formatTimestamp(task.startTime)}</td>
-            <td className="py-1 pr-2">{task.endTime ? formatTimestamp(task.endTime) : 'Running'}</td>
+            <td className="py-1 pr-2">{formatInTimezone(task.startTime, timezone)}</td>
+            <td className="py-1 pr-2">
+              {task.endTime ? formatInTimezone(task.endTime, timezone) : 'Running'}
+            </td>
             <td className="py-1 pr-2">
               {task.projects.length > 0 ? task.projects.map((p) => p.name).join(', ') : '—'}
             </td>
@@ -103,6 +95,8 @@ function TaskTable({ tasks }: { tasks: Task[] }) {
 }
 
 export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: number } = {}) {
+  const { user } = useAuth()
+  const timezone = user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
   const [projects, setProjects] = useState<Project[]>([])
   const [projectsError, setProjectsError] = useState<string | null>(null)
 
@@ -171,7 +165,7 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
     setPeriodError(null)
     setLoadingPeriod(true)
     try {
-      const { from, to } = periodRange(nextPeriod)
+      const { from, to } = periodRange(nextPeriod, timezone)
       const tasks = await listTasks(from, to)
       setPeriodTasks(tasks)
     } catch {
@@ -249,7 +243,7 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
             {projectOverview.tasks.length === 0 ? (
               <p className="text-sm text-slate-500">No tasks in this range.</p>
             ) : (
-              <TaskTable tasks={projectOverview.tasks} />
+              <TaskTable tasks={projectOverview.tasks} timezone={timezone} />
             )}
           </div>
         )}
@@ -352,7 +346,7 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
             {periodTasks.length === 0 ? (
               <p className="text-sm text-slate-500">No tasks in this period.</p>
             ) : (
-              <TaskTable tasks={periodTasks} />
+              <TaskTable tasks={periodTasks} timezone={timezone} />
             )}
           </div>
         )}

@@ -11,6 +11,9 @@ import * as tasksApi from '../api/tasks'
 vi.mock('../api/overview')
 vi.mock('../api/projects')
 vi.mock('../api/tasks')
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 1, email: 'user@example.com', timezone: null } }),
+}))
 vi.mock('../api/export', () => ({
   buildExportUrl: vi.fn(() => '/api/projects/1/export?format=csv'),
 }))

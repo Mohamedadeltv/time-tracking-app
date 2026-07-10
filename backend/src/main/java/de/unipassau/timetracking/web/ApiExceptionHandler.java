@@ -9,6 +9,7 @@ import de.unipassau.timetracking.task.NoRunningTaskException;
 import de.unipassau.timetracking.task.TaskNotFoundException;
 import de.unipassau.timetracking.user.EmailAlreadyInUseException;
 import de.unipassau.timetracking.user.InvalidCurrentPasswordException;
+import de.unipassau.timetracking.user.InvalidTimezoneException;
 import de.unipassau.timetracking.user.UserNotFoundException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -86,6 +87,11 @@ public class ApiExceptionHandler {
   @ExceptionHandler(UserNotFoundException.class)
   public ResponseEntity<Map<String, String>> handleUserNotFound(UserNotFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", ex.getMessage()));
+  }
+
+  @ExceptionHandler(InvalidTimezoneException.class)
+  public ResponseEntity<Map<String, String>> handleInvalidTimezone(InvalidTimezoneException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
   }
 
   @ExceptionHandler(AuthenticationException.class)

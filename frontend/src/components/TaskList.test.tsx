@@ -8,6 +8,9 @@ import * as projectsApi from '../api/projects'
 
 vi.mock('../api/tasks')
 vi.mock('../api/projects')
+vi.mock('../auth/useAuth', () => ({
+  useAuth: () => ({ user: { id: 1, email: 'user@example.com', timezone: null } }),
+}))
 
 function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
   return {

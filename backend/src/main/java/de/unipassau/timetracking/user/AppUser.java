@@ -25,6 +25,8 @@ public class AppUser {
   @Column(nullable = false)
   private Instant createdAt;
 
+  @Column private String preferredTimezone;
+
   protected AppUser() {}
 
   public AppUser(String email, String passwordHash) {
@@ -51,5 +53,13 @@ public class AppUser {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public String getPreferredTimezone() {
+    return preferredTimezone;
+  }
+
+  public void setPreferredTimezone(String timezone) {
+    this.preferredTimezone = timezone;
   }
 }
