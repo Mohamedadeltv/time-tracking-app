@@ -3,6 +3,7 @@ import { apiClient } from './client'
 export interface User {
   id: number
   email: string
+  timezone?: string | null
 }
 
 export function register(email: string, password: string): Promise<User> {
@@ -23,4 +24,8 @@ export function me(): Promise<User> {
 
 export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
   return apiClient.post<void>('/api/auth/change-password', { currentPassword, newPassword })
+}
+
+export function setTimezone(timezone: string): Promise<User> {
+  return apiClient.put<User>('/api/auth/timezone', { timezone })
 }

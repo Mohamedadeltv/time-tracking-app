@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { listProjects, type Project } from '../api/projects'
 import { createTask, deleteTask, listTasks, updateTask, type Task } from '../api/tasks'
+import { useAuth } from '../auth/useAuth'
+import { formatInTimezone } from '../utils/timezone'
 
 function toLocalInputValue(iso: string): string {
   const date = new Date(iso)
@@ -13,9 +15,6 @@ function fromLocalInputValue(value: string): string {
   return new Date(value).toISOString()
 }
 
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString()
-}
 
 function toggled(ids: Set<number>, id: number, checked: boolean): Set<number> {
   const next = new Set(ids)
@@ -63,6 +62,7 @@ export function TaskList({
   refreshSignal?: number
   onTasksChange?: () => void
 } = {}) {
+  const { user } = useAuth()
   const [tasks, setTasks] = useState<Task[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
@@ -287,9 +287,9 @@ export function TaskList({
               ) : (
                 <tr key={task.id} className="border-b">
                   <td className="py-1 pr-2">{task.description || 'Untitled task'}</td>
-                  <td className="py-1 pr-2">{formatTimestamp(task.startTime)}</td>
+                  <td className="py-1 pr-2">{formatInTimezone(task.startTime, user?.timezone)}</td>
                   <td className="py-1 pr-2">
-                    {task.endTime ? formatTimestamp(task.endTime) : 'Running'}
+                    {task.endTime ? formatInTimezone(task.endTime, user?.timezone) : 'Running'}
                   </td>
                   <td className="py-1 pr-2">
                     {task.projects.length > 0

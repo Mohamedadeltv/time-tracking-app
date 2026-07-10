@@ -127,4 +127,37 @@ describe('DashboardPage', () => {
       expect(screen.getByText('Current password is incorrect')).toBeInTheDocument(),
     )
   })
+
+  it('saves the timezone successfully', async () => {
+    vi.mocked(authApi.setTimezone).mockResolvedValue({
+      id: 1,
+      email: 'a@example.com',
+      timezone: 'Europe/Berlin',
+    })
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    const input = screen.getByLabelText('Timezone')
+    await user.clear(input)
+    await user.type(input, 'Europe/Berlin')
+    await user.click(screen.getByRole('button', { name: 'Apply timezone' }))
+
+    await waitFor(() => expect(screen.getByText('Timezone saved.')).toBeInTheDocument())
+    expect(authApi.setTimezone).toHaveBeenCalledWith('Europe/Berlin')
+  })
+
+  it('shows an error when saving the timezone fails', async () => {
+    vi.mocked(authApi.setTimezone).mockRejectedValue(new ApiError(400, 'Unknown timezone: bad/tz'))
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    const input = screen.getByLabelText('Timezone')
+    await user.clear(input)
+    await user.type(input, 'bad/tz')
+    await user.click(screen.getByRole('button', { name: 'Apply timezone' }))
+
+    await waitFor(() => expect(screen.getByText('Unknown timezone: bad/tz')).toBeInTheDocument())
+  })
 })
