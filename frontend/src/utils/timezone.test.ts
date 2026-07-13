@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   addOneMonth,
   formatInTimezone,
+  fromDateTimeLocalValue,
   startOfDayInTimezone,
   startOfMonthInTimezone,
+  toDateTimeLocalValue,
 } from './timezone'
 
 describe('formatInTimezone', () => {
@@ -45,6 +47,44 @@ describe('startOfMonthInTimezone', () => {
     const start = startOfMonthInTimezone('UTC')
     const dateStr = start.toISOString().slice(0, 10)
     expect(dateStr).toMatch(/^\d{4}-\d{2}-01$/)
+  })
+})
+
+describe('fromDateTimeLocalValue', () => {
+  it('interprets the wall-clock value in the given timezone, not the browser timezone', () => {
+    const utcInstant = fromDateTimeLocalValue('2026-06-15T12:00', 'UTC')
+    expect(utcInstant).toBe('2026-06-15T12:00:00.000Z')
+  })
+
+  it('produces an earlier UTC instant for a timezone ahead of UTC', () => {
+    // Pacific/Kiritimati is a fixed UTC+14 offset with no DST.
+    const instant = fromDateTimeLocalValue('2026-06-15T12:00', 'Pacific/Kiritimati')
+    expect(instant).toBe('2026-06-14T22:00:00.000Z')
+  })
+
+  it('falls back to the browser timezone when none is given', () => {
+    const result = fromDateTimeLocalValue('2026-06-15T12:00')
+    expect(result).toBeTruthy()
+    expect(new Date(result).toISOString()).toBe(result)
+  })
+})
+
+describe('toDateTimeLocalValue', () => {
+  it('formats an instant as the wall-clock value in the given timezone', () => {
+    const result = toDateTimeLocalValue('2026-06-15T12:00:00Z', 'UTC')
+    expect(result).toBe('2026-06-15T12:00')
+  })
+
+  it('shifts forward for a timezone ahead of UTC', () => {
+    const result = toDateTimeLocalValue('2026-06-15T12:00:00Z', 'Pacific/Kiritimati')
+    expect(result).toBe('2026-06-16T02:00')
+  })
+
+  it('round-trips with fromDateTimeLocalValue', () => {
+    const original = '2026-06-15T12:00'
+    const instant = fromDateTimeLocalValue(original, 'Pacific/Kiritimati')
+    const roundTripped = toDateTimeLocalValue(instant, 'Pacific/Kiritimati')
+    expect(roundTripped).toBe(original)
   })
 })
 
