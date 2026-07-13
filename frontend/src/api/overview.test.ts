@@ -40,4 +40,13 @@ describe('overview api', () => {
       '/api/projects/1/overview?from=2026-01-01T00%3A00%3A00Z&to=2026-01-02T00%3A00%3A00Z',
     )
   })
+
+  it('getProjectOverview sends userId as a query param when given', async () => {
+    mockFetchOnce(200, { projectId: 1, projectName: 'Lecture', totalSeconds: 0, tasks: [] })
+
+    await overviewApi.getProjectOverview(1, undefined, undefined, 7)
+
+    const [path] = vi.mocked(fetch).mock.calls[0]
+    expect(path).toBe('/api/projects/1/overview?userId=7')
+  })
 })

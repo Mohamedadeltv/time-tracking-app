@@ -55,6 +55,15 @@ function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
   }
 }
 
+function member(overrides: Partial<projectsApi.Member> = {}): projectsApi.Member {
+  return {
+    userId: 1,
+    email: 'user@example.com',
+    role: 'OWNER',
+    ...overrides,
+  }
+}
+
 function projectOverview(
   overrides: Partial<overviewApi.ProjectOverview> = {},
 ): overviewApi.ProjectOverview {
@@ -71,6 +80,7 @@ describe('Overview', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mockAuthUser()
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([])
   })
 
   it('lists projects, including subprojects indented, in the project picker', async () => {
@@ -116,7 +126,9 @@ describe('Overview', () => {
     await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
     await user.click(screen.getByRole('button', { name: 'Show' }))
 
-    await waitFor(() => expect(overviewApi.getProjectOverview).toHaveBeenCalledWith(1, undefined, undefined))
+    await waitFor(() =>
+      expect(overviewApi.getProjectOverview).toHaveBeenCalledWith(1, undefined, undefined, undefined),
+    )
     expect(screen.getByText('02:03:04')).toBeInTheDocument()
     expect(screen.getByText('Writing report')).toBeInTheDocument()
   })
@@ -298,5 +310,69 @@ describe('Overview', () => {
     await waitFor(() => expect(screen.getByText('Time goals')).toBeInTheDocument())
     expect(screen.getByText(/Today:/)).toBeInTheDocument()
     expect(screen.queryByText(/This week:/)).not.toBeInTheDocument()
+  })
+
+  it('does not show a user filter when the project has no members loaded', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([])
+
+    render(<Overview />)
+    await userEvent.setup().selectOptions(await screen.findByLabelText('Project'), 'Course')
+
+    await waitFor(() => expect(projectsApi.listMembers).toHaveBeenCalledWith(1))
+    expect(screen.queryByLabelText('Filter by user')).not.toBeInTheDocument()
+  })
+
+  it('shows a user filter populated with the project members', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([
+      member({ userId: 1, email: 'owner@example.com', role: 'OWNER' }),
+      member({ userId: 2, email: 'collaborator@example.com', role: 'MEMBER' }),
+    ])
+
+    render(<Overview />)
+    await userEvent.setup().selectOptions(await screen.findByLabelText('Project'), 'Course')
+
+    const filter = await screen.findByLabelText('Filter by user')
+    const optionLabels = Array.from(filter.querySelectorAll('option')).map((o) => o.textContent)
+    expect(optionLabels).toEqual(['All members', 'owner@example.com', 'collaborator@example.com'])
+  })
+
+  it('passes the selected user id to getProjectOverview', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([project()])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([
+      member({ userId: 1, email: 'owner@example.com', role: 'OWNER' }),
+      member({ userId: 2, email: 'collaborator@example.com', role: 'MEMBER' }),
+    ])
+    vi.mocked(overviewApi.getProjectOverview).mockResolvedValue(projectOverview({ tasks: [] }))
+    const user = userEvent.setup()
+
+    render(<Overview />)
+    await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
+    await user.selectOptions(await screen.findByLabelText('Filter by user'), 'collaborator@example.com')
+    await user.click(screen.getByRole('button', { name: 'Show' }))
+
+    await waitFor(() =>
+      expect(overviewApi.getProjectOverview).toHaveBeenCalledWith(1, undefined, undefined, 2),
+    )
+  })
+
+  it('resets the user filter when a different project is selected', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([
+      project({ id: 1, name: 'Course' }),
+      project({ id: 2, name: 'Seminar' }),
+    ])
+    vi.mocked(projectsApi.listMembers).mockResolvedValue([
+      member({ userId: 2, email: 'collaborator@example.com', role: 'MEMBER' }),
+    ])
+    const user = userEvent.setup()
+
+    render(<Overview />)
+    await user.selectOptions(await screen.findByLabelText('Project'), 'Course')
+    await user.selectOptions(await screen.findByLabelText('Filter by user'), 'collaborator@example.com')
+
+    await user.selectOptions(screen.getByLabelText('Project'), 'Seminar')
+
+    await waitFor(() => expect(screen.getByLabelText('Filter by user')).toHaveValue(''))
   })
 })
