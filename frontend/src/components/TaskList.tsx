@@ -26,6 +26,35 @@ function toggled(ids: Set<number>, id: number, checked: boolean): Set<number> {
   return next
 }
 
+function parseTags(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0),
+    ),
+  )
+}
+
+function TagPills({ tags }: { tags: string[] }) {
+  if (tags.length === 0) {
+    return <>—</>
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+        >
+          {tag}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function ProjectCheckboxes({
   projects,
   selectedIds,
@@ -73,14 +102,18 @@ export function TaskList({
   const [newStart, setNewStart] = useState('')
   const [newEnd, setNewEnd] = useState('')
   const [newProjectIds, setNewProjectIds] = useState<Set<number>>(new Set())
+  const [newTags, setNewTags] = useState('')
 
   const [editDescription, setEditDescription] = useState('')
   const [editStart, setEditStart] = useState('')
   const [editEnd, setEditEnd] = useState('')
   const [editProjectIds, setEditProjectIds] = useState<Set<number>>(new Set())
+  const [editTags, setEditTags] = useState('')
+
+  const [tagFilter, setTagFilter] = useState('')
 
   function load() {
-    listTasks()
+    listTasks(undefined, undefined, tagFilter || undefined)
       .then(setTasks)
       .catch(() => setError('Could not load tasks.'))
       .finally(() => setLoading(false))
@@ -90,14 +123,14 @@ export function TaskList({
   }
 
   useEffect(() => {
-    listTasks()
+    listTasks(undefined, undefined, tagFilter || undefined)
       .then(setTasks)
       .catch(() => setError('Could not load tasks.'))
       .finally(() => setLoading(false))
     listProjects()
       .then(setProjects)
       .catch(() => setProjects([]))
-  }, [refreshSignal])
+  }, [refreshSignal, tagFilter])
 
   async function handleCreate(event: FormEvent) {
     event.preventDefault()
@@ -108,11 +141,13 @@ export function TaskList({
         startTime: fromLocalInputValue(newStart),
         endTime: fromLocalInputValue(newEnd),
         projectIds: Array.from(newProjectIds),
+        tags: parseTags(newTags),
       })
       setNewDescription('')
       setNewStart('')
       setNewEnd('')
       setNewProjectIds(new Set())
+      setNewTags('')
       load()
       onTasksChange?.()
     } catch (err) {
@@ -127,6 +162,7 @@ export function TaskList({
     setEditStart(toLocalInputValue(task.startTime))
     setEditEnd(task.endTime ? toLocalInputValue(task.endTime) : '')
     setEditProjectIds(new Set(task.projects.map((p) => p.id)))
+    setEditTags(task.tags.join(', '))
   }
 
   async function handleUpdate(event: FormEvent, id: number) {
@@ -138,6 +174,7 @@ export function TaskList({
         startTime: fromLocalInputValue(editStart),
         endTime: editEnd ? fromLocalInputValue(editEnd) : null,
         projectIds: Array.from(editProjectIds),
+        tags: parseTags(editTags),
       })
       setEditingId(null)
       load()
@@ -197,6 +234,16 @@ export function TaskList({
             className="rounded border border-slate-300 px-2 py-1"
           />
         </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
+          Tags (comma-separated)
+          <input
+            type="text"
+            value={newTags}
+            onChange={(e) => setNewTags(e.target.value)}
+            placeholder="e.g. work, urgent"
+            className="rounded border border-slate-300 px-2 py-1"
+          />
+        </label>
         <ProjectCheckboxes
           projects={projects}
           selectedIds={newProjectIds}
@@ -210,6 +257,28 @@ export function TaskList({
         </button>
       </form>
 
+      <label className="flex flex-col gap-1 text-sm text-slate-700">
+        Filter by tag
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={tagFilter}
+            onChange={(e) => setTagFilter(e.target.value)}
+            placeholder="e.g. work"
+            className="rounded border border-slate-300 px-2 py-1"
+          />
+          {tagFilter && (
+            <button
+              type="button"
+              onClick={() => setTagFilter('')}
+              className="text-sm text-slate-600 underline"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      </label>
+
       {loading ? (
         <p className="text-sm text-slate-500">Loading…</p>
       ) : tasks.length === 0 ? (
@@ -222,6 +291,7 @@ export function TaskList({
               <th className="py-1 pr-2">Start</th>
               <th className="py-1 pr-2">End</th>
               <th className="py-1 pr-2">Projects</th>
+              <th className="py-1 pr-2">Tags</th>
               <th className="py-1 pr-2" />
             </tr>
           </thead>
@@ -229,7 +299,7 @@ export function TaskList({
             {tasks.map((task) =>
               editingId === task.id ? (
                 <tr key={task.id} className="border-b">
-                  <td colSpan={5} className="py-2">
+                  <td colSpan={6} className="py-2">
                     <form
                       onSubmit={(e) => handleUpdate(e, task.id)}
                       className="flex flex-wrap items-end gap-2"
@@ -260,6 +330,15 @@ export function TaskList({
                           type="datetime-local"
                           value={editEnd}
                           onChange={(e) => setEditEnd(e.target.value)}
+                          className="rounded border border-slate-300 px-2 py-1"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs text-slate-700">
+                        Edit tags
+                        <input
+                          type="text"
+                          value={editTags}
+                          onChange={(e) => setEditTags(e.target.value)}
                           className="rounded border border-slate-300 px-2 py-1"
                         />
                       </label>
@@ -295,6 +374,9 @@ export function TaskList({
                     {task.projects.length > 0
                       ? task.projects.map((p) => p.name).join(', ')
                       : '—'}
+                  </td>
+                  <td className="py-1 pr-2">
+                    <TagPills tags={task.tags} />
                   </td>
                   <td className="flex gap-2 py-1 pr-2">
                     <button

@@ -12,6 +12,7 @@ export interface Task {
   endTime: string | null
   running: boolean
   projects: TaskProject[]
+  tags: string[]
 }
 
 export function startTask(description?: string): Promise<Task> {
@@ -31,6 +32,7 @@ export interface CreateTaskInput {
   startTime: string
   endTime: string
   projectIds?: number[]
+  tags?: string[]
 }
 
 export interface UpdateTaskInput {
@@ -38,12 +40,14 @@ export interface UpdateTaskInput {
   startTime: string
   endTime: string | null
   projectIds?: number[]
+  tags?: string[]
 }
 
-export function listTasks(from?: string, to?: string): Promise<Task[]> {
+export function listTasks(from?: string, to?: string, tag?: string): Promise<Task[]> {
   const params = new URLSearchParams()
   if (from) params.set('from', from)
   if (to) params.set('to', to)
+  if (tag) params.set('tag', tag)
   const query = params.toString()
   return apiClient.get<Task[]>(`/api/tasks${query ? `?${query}` : ''}`)
 }

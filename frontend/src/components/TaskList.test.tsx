@@ -20,6 +20,7 @@ function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
     endTime: '2026-01-01T10:00:00Z',
     running: false,
     projects: [],
+    tags: [],
     ...overrides,
   }
 }
@@ -200,7 +201,7 @@ describe('TaskList', () => {
 
     render(<TaskList />)
 
-    await waitFor(() => expect(screen.getByText('—')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getAllByText('—').length).toBeGreaterThan(0))
   })
 
   it('adds a task with selected projects', async () => {
@@ -266,5 +267,88 @@ describe('TaskList', () => {
     render(<TaskList />)
 
     await waitFor(() => expect(screen.getByText('Could not load tasks.')).toBeInTheDocument())
+  })
+
+  it('shows the tags for a task', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([task({ tags: ['work', 'urgent'] })])
+
+    render(<TaskList />)
+
+    await waitFor(() => expect(screen.getByText('work')).toBeInTheDocument())
+    expect(screen.getByText('urgent')).toBeInTheDocument()
+  })
+
+  it('adds a task with tags parsed from a comma-separated field', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+    vi.mocked(tasksApi.createTask).mockResolvedValue(task())
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('No tasks yet.')).toBeInTheDocument())
+
+    const form = within(addTaskForm())
+    fireEvent.change(form.getByLabelText('Start'), { target: { value: '2026-01-01T09:00' } })
+    fireEvent.change(form.getByLabelText('End'), { target: { value: '2026-01-01T10:00' } })
+    await user.type(form.getByLabelText('Tags (comma-separated)'), ' work , urgent ,work')
+    await user.click(form.getByRole('button', { name: 'Add task' }))
+
+    await waitFor(() =>
+      expect(tasksApi.createTask).toHaveBeenCalledWith(
+        expect.objectContaining({ tags: ['work', 'urgent'] }),
+      ),
+    )
+  })
+
+  it('pre-fills tags when editing and saves the edited tag list', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([task({ tags: ['work'] })])
+    vi.mocked(tasksApi.updateTask).mockResolvedValue(task())
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('Writing report')).toBeInTheDocument())
+
+    await user.click(screen.getByRole('button', { name: 'Edit' }))
+    const saveButton = screen.getByRole('button', { name: 'Save' })
+    const editForm = within(saveButton.closest('form') as HTMLFormElement)
+
+    expect(editForm.getByLabelText('Edit tags')).toHaveValue('work')
+    await user.clear(editForm.getByLabelText('Edit tags'))
+    await user.type(editForm.getByLabelText('Edit tags'), 'personal')
+    await user.click(saveButton)
+
+    await waitFor(() =>
+      expect(tasksApi.updateTask).toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ tags: ['personal'] }),
+      ),
+    )
+  })
+
+  it('refetches tasks filtered by tag when the tag filter changes', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([task({ tags: ['work'] })])
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('Writing report')).toBeInTheDocument())
+
+    await user.type(screen.getByLabelText('Filter by tag'), 'work')
+
+    await waitFor(() =>
+      expect(tasksApi.listTasks).toHaveBeenLastCalledWith(undefined, undefined, 'work'),
+    )
+  })
+
+  it('clears the tag filter', async () => {
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+    const user = userEvent.setup()
+
+    render(<TaskList />)
+    await waitFor(() => expect(screen.getByText('No tasks yet.')).toBeInTheDocument())
+
+    await user.type(screen.getByLabelText('Filter by tag'), 'work')
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Clear' })).toBeInTheDocument())
+    await user.click(screen.getByRole('button', { name: 'Clear' }))
+
+    expect(screen.queryByRole('button', { name: 'Clear' })).not.toBeInTheDocument()
   })
 })

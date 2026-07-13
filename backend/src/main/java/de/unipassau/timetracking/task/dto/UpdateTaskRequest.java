@@ -10,4 +10,5 @@ public record UpdateTaskRequest(
     @Size(max = 500) String description,
     @NotNull Instant startTime,
     Instant endTime,
-    Set<Long> projectIds) {}
+    Set<Long> projectIds,
+    Set<@Size(max = 50) String> tags) {}

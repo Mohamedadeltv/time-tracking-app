@@ -2,7 +2,9 @@ package de.unipassau.timetracking.task;
 
 import de.unipassau.timetracking.project.Project;
 import de.unipassau.timetracking.user.AppUser;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,6 +43,11 @@ public class Task {
       joinColumns = @JoinColumn(name = "task_id"),
       inverseJoinColumns = @JoinColumn(name = "project_id"))
   private Set<Project> projects = new HashSet<>();
+
+  @ElementCollection
+  @CollectionTable(name = "task_tag", joinColumns = @JoinColumn(name = "task_id"))
+  @Column(name = "tag")
+  private Set<String> tags = new HashSet<>();
 
   protected Task() {}
 
@@ -90,5 +97,13 @@ public class Task {
 
   public void setProjects(Set<Project> projects) {
     this.projects = projects;
+  }
+
+  public Set<String> getTags() {
+    return tags;
+  }
+
+  public void setTags(Set<String> tags) {
+    this.tags = tags;
   }
 }

@@ -37,6 +37,7 @@ function task(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
     endTime: '2026-01-01T10:00:00Z',
     running: false,
     projects: [],
+    tags: [],
     ...overrides,
   }
 }

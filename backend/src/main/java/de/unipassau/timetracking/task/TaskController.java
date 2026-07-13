@@ -105,6 +105,7 @@ public class TaskController {
     Task task = new Task(owner, request.description(), request.startTime());
     task.stop(request.endTime());
     task.setProjects(resolveProjects(request.projectIds(), owner));
+    task.setTags(normalizeTags(request.tags()));
     taskRepository.save(task);
     return ResponseEntity.status(201).body(TaskResponse.from(task));
   }
@@ -112,19 +113,23 @@ public class TaskController {
   /**
    * {@code from}/{@code to} are optional ISO-8601 instants that scope the list to tasks starting
    * within that window (start-inclusive, end-exclusive) - used for the current day/week/month
-   * overviews, whose boundaries the frontend computes in the user's local timezone.
+   * overviews, whose boundaries the frontend computes in the user's local timezone. {@code tag}
+   * optionally restricts the list to tasks carrying that tag (case-insensitive).
    */
   @GetMapping
   public List<TaskResponse> list(
       @RequestParam(required = false) String from,
       @RequestParam(required = false) String to,
+      @RequestParam(required = false) String tag,
       Authentication authentication) {
     AppUser owner = currentUser(authentication);
     Instant fromInstant = TimeRange.parse(from);
     Instant toInstant = TimeRange.parse(to);
     TimeRange.validate(fromInstant, toInstant);
+    String normalizedTag = tag == null || tag.isBlank() ? null : tag.trim().toLowerCase();
     return taskRepository.findByOwnerOrderByStartTimeDesc(owner).stream()
         .filter(task -> TimeRange.contains(task, fromInstant, toInstant))
+        .filter(task -> normalizedTag == null || task.getTags().contains(normalizedTag))
         .map(TaskResponse::from)
         .toList();
   }
@@ -154,6 +159,7 @@ public class TaskController {
 
     task.update(request.description(), request.startTime(), request.endTime());
     task.setProjects(resolveProjects(request.projectIds(), owner));
+    task.setTags(normalizeTags(request.tags()));
     taskRepository.save(task);
     return ResponseEntity.ok(TaskResponse.from(task));
   }
@@ -169,6 +175,20 @@ public class TaskController {
   private AppUser currentUser(Authentication authentication) {
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
     return appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
+  }
+
+  /** Tags are trimmed, lower-cased, and de-duplicated so filtering is case-insensitive. */
+  private Set<String> normalizeTags(Set<String> rawTags) {
+    if (rawTags == null || rawTags.isEmpty()) {
+      return new HashSet<>();
+    }
+    Set<String> normalized = new HashSet<>();
+    for (String rawTag : rawTags) {
+      if (rawTag != null && !rawTag.isBlank()) {
+        normalized.add(rawTag.trim().toLowerCase());
+      }
+    }
+    return normalized;
   }
 
   private Set<Project> resolveProjects(Set<Long> projectIds, AppUser user) {
