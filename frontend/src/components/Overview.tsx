@@ -11,6 +11,7 @@ import {
   addOneDay,
   addOneMonth,
   formatInTimezone,
+  fromDateTimeLocalValue,
   startOfDayInTimezone,
   startOfMonthInTimezone,
   startOfWeekInTimezone,
@@ -178,8 +179,8 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
     setProjectOverviewError(null)
     setLoadingProjectOverview(true)
     try {
-      const from = fromInput ? new Date(fromInput).toISOString() : undefined
-      const to = toInput ? new Date(toInput).toISOString() : undefined
+      const from = fromInput ? fromDateTimeLocalValue(fromInput, timezone) : undefined
+      const to = toInput ? fromDateTimeLocalValue(toInput, timezone) : undefined
       const overview = await getProjectOverview(
         selectedProjectId,
         from,
@@ -201,8 +202,11 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
     let from: string | undefined
     let to: string | undefined
     if (!exportAllTime) {
-      from = new Date(exportYear, exportMonth - 1, 1).toISOString()
-      to = new Date(exportYear, exportMonth, 1).toISOString()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      const nextMonth = exportMonth === 12 ? 1 : exportMonth + 1
+      const nextYear = exportMonth === 12 ? exportYear + 1 : exportYear
+      from = fromDateTimeLocalValue(`${exportYear}-${pad(exportMonth)}-01T00:00`, timezone)
+      to = fromDateTimeLocalValue(`${nextYear}-${pad(nextMonth)}-01T00:00`, timezone)
     }
     const url = buildExportUrl(selectedProjectId, exportFormat, from, to)
     const a = document.createElement('a')

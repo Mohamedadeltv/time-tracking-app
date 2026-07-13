@@ -60,3 +60,34 @@ export function addOneMonth(date: Date, timezone: string): Date {
   const nextYear = month === 12 ? year + 1 : year
   return midnightInTimezone(nextYear, nextMonth - 1, 1, timezone)
 }
+
+// Interprets a `datetime-local` input value (no timezone info) as wall-clock time in the given
+// timezone, rather than the browser's own timezone - so a user whose preferred app timezone
+// differs from their OS/browser timezone still gets the instant they actually typed.
+export function fromDateTimeLocalValue(value: string, timezone?: string | null): string {
+  const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const [datePart, timePart] = value.split('T')
+  const [year, month, day] = datePart.split('-').map(Number)
+  const [hour, minute] = timePart.split(':').map(Number)
+  const naiveUTC = Date.UTC(year, month - 1, day, hour, minute, 0)
+  const offsetMs = getUtcOffsetMs(tz, new Date(Date.UTC(year, month - 1, day, 12, 0, 0)))
+  return new Date(naiveUTC - offsetMs).toISOString()
+}
+
+// Inverse of fromDateTimeLocalValue: formats an instant as the wall-clock datetime-local value it
+// corresponds to in the given timezone.
+export function toDateTimeLocalValue(isoString: string, timezone?: string | null): string {
+  const tz = timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(isoString))
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00'
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
+}

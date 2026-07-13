@@ -3,17 +3,7 @@ import { ApiError } from '../api/client'
 import { listProjects, type Project } from '../api/projects'
 import { createTask, deleteTask, listTasks, updateTask, type Task } from '../api/tasks'
 import { useAuth } from '../auth/useAuth'
-import { formatInTimezone } from '../utils/timezone'
-
-function toLocalInputValue(iso: string): string {
-  const date = new Date(iso)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
-
-function fromLocalInputValue(value: string): string {
-  return new Date(value).toISOString()
-}
+import { formatInTimezone, fromDateTimeLocalValue, toDateTimeLocalValue } from '../utils/timezone'
 
 
 function toggled(ids: Set<number>, id: number, checked: boolean): Set<number> {
@@ -138,8 +128,8 @@ export function TaskList({
     try {
       await createTask({
         description: newDescription.trim() || undefined,
-        startTime: fromLocalInputValue(newStart),
-        endTime: fromLocalInputValue(newEnd),
+        startTime: fromDateTimeLocalValue(newStart, user?.timezone),
+        endTime: fromDateTimeLocalValue(newEnd, user?.timezone),
         projectIds: Array.from(newProjectIds),
         tags: parseTags(newTags),
       })
@@ -159,8 +149,8 @@ export function TaskList({
     setError(null)
     setEditingId(task.id)
     setEditDescription(task.description ?? '')
-    setEditStart(toLocalInputValue(task.startTime))
-    setEditEnd(task.endTime ? toLocalInputValue(task.endTime) : '')
+    setEditStart(toDateTimeLocalValue(task.startTime, user?.timezone))
+    setEditEnd(task.endTime ? toDateTimeLocalValue(task.endTime, user?.timezone) : '')
     setEditProjectIds(new Set(task.projects.map((p) => p.id)))
     setEditTags(task.tags.join(', '))
   }
@@ -171,8 +161,8 @@ export function TaskList({
     try {
       await updateTask(id, {
         description: editDescription.trim() || undefined,
-        startTime: fromLocalInputValue(editStart),
-        endTime: editEnd ? fromLocalInputValue(editEnd) : null,
+        startTime: fromDateTimeLocalValue(editStart, user?.timezone),
+        endTime: editEnd ? fromDateTimeLocalValue(editEnd, user?.timezone) : null,
         projectIds: Array.from(editProjectIds),
         tags: parseTags(editTags),
       })

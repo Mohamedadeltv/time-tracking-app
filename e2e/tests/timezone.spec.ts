@@ -4,9 +4,22 @@ function uniqueEmail() {
   return `e2e-${Date.now()}-${Math.floor(Math.random() * 10_000)}@example.com`
 }
 
-function toLocalInputValue(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+// Formats a Date as the wall-clock `datetime-local` value it corresponds to in the given
+// timezone, mirroring the app's own toDateTimeLocalValue conversion. Used so tests can fill
+// task Start/End inputs with the exact string a user in that timezone would have typed.
+function toLocalInputValueInTimezone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00'
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
 }
 
 async function expectedFormat(page: Page, iso: string, timezone: string): Promise<string> {
@@ -24,8 +37,8 @@ async function expectedFormat(page: Page, iso: string, timezone: string): Promis
   )
 }
 
-async function registerAndLogin(browser: Browser, email: string): Promise<Page> {
-  const context = await browser.newContext()
+async function registerAndLogin(browser: Browser, email: string, timezoneId?: string): Promise<Page> {
+  const context = await browser.newContext(timezoneId ? { timezoneId } : {})
   const page = await context.newPage()
   await page.goto('/register')
   await page.getByLabel('Email').fill(email)
@@ -44,6 +57,11 @@ async function setTimezone(page: Page, timezone: string) {
   await expect(timezoneForm.getByText('Timezone saved.')).toBeVisible()
 }
 
+// Pin the browser's own OS timezone away from UTC so these tests genuinely exercise "task
+// creation uses the user's preferred app timezone, not the browser's timezone" - rather than
+// passing by coincidence when the CI host happens to already run in UTC.
+test.use({ timezoneId: 'America/New_York' })
+
 test('changing the preferred timezone changes how task times are displayed', async ({ page }) => {
   const email = uniqueEmail()
   await page.goto('/register')
@@ -52,6 +70,11 @@ test('changing the preferred timezone changes how task times are displayed', asy
   await page.getByRole('button', { name: 'Register' }).click()
   await expect(page.getByText(`Hi, ${email}`)).toBeVisible()
 
+  // Set the preferred timezone to UTC *before* creating the task, so the Start/End inputs
+  // (filled with the UTC wall-clock value) are interpreted as UTC by the app - exercising the
+  // "creating a new task uses this timezone by default" requirement, not just display.
+  await setTimezone(page, 'UTC')
+
   const taskStart = new Date('2026-06-15T12:00:00Z')
   const taskEnd = new Date(taskStart.getTime() + 60 * 60 * 1000)
 
@@ -59,14 +82,13 @@ test('changing the preferred timezone changes how task times are displayed', asy
     .locator('form')
     .filter({ has: page.getByRole('button', { name: 'Add task' }) })
   await addTaskForm.getByLabel('Description').fill('Zoned task')
-  await addTaskForm.getByLabel('Start').fill(toLocalInputValue(taskStart))
-  await addTaskForm.getByLabel('End').fill(toLocalInputValue(taskEnd))
+  await addTaskForm.getByLabel('Start').fill(toLocalInputValueInTimezone(taskStart, 'UTC'))
+  await addTaskForm.getByLabel('End').fill(toLocalInputValueInTimezone(taskEnd, 'UTC'))
   await addTaskForm.getByRole('button', { name: 'Add task' }).click()
   await expect(page.getByRole('cell', { name: 'Zoned task' })).toBeVisible()
 
   const taskRow = page.getByRole('row', { name: /Zoned task/ })
 
-  await setTimezone(page, 'UTC')
   const utcExpected = await expectedFormat(page, taskStart.toISOString(), 'UTC')
   await expect(taskRow.locator('td').nth(1)).toHaveText(utcExpected)
 
@@ -84,7 +106,9 @@ test('collaborators on a shared project each see task times in their own timezon
   const ownerEmail = uniqueEmail()
   const memberEmail = uniqueEmail()
 
-  const ownerPage = await registerAndLogin(browser, ownerEmail)
+  // Owner's browser OS timezone is deliberately different from their UTC app preference below,
+  // so the task-creation step below genuinely exercises the preferred-timezone interpretation.
+  const ownerPage = await registerAndLogin(browser, ownerEmail, 'America/New_York')
   const memberPage = await registerAndLogin(browser, memberEmail)
 
   await setTimezone(ownerPage, 'UTC')
@@ -111,8 +135,8 @@ test('collaborators on a shared project each see task times in their own timezon
     .locator('form')
     .filter({ has: ownerPage.getByRole('button', { name: 'Add task' }) })
   await ownerAddTaskForm.getByLabel('Description').fill('Shared zoned task')
-  await ownerAddTaskForm.getByLabel('Start').fill(toLocalInputValue(taskStart))
-  await ownerAddTaskForm.getByLabel('End').fill(toLocalInputValue(taskEnd))
+  await ownerAddTaskForm.getByLabel('Start').fill(toLocalInputValueInTimezone(taskStart, 'UTC'))
+  await ownerAddTaskForm.getByLabel('End').fill(toLocalInputValueInTimezone(taskEnd, 'UTC'))
   await ownerAddTaskForm.getByLabel('Zoned project').check()
   await ownerAddTaskForm.getByRole('button', { name: 'Add task' }).click()
   await expect(ownerPage.getByRole('cell', { name: 'Shared zoned task' })).toBeVisible()
