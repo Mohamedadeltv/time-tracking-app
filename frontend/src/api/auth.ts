@@ -4,6 +4,8 @@ export interface User {
   id: number
   email: string
   timezone?: string | null
+  dailyGoalHours?: number | null
+  weeklyGoalHours?: number | null
 }
 
 export function register(email: string, password: string): Promise<User> {
@@ -28,4 +30,11 @@ export function changePassword(currentPassword: string, newPassword: string): Pr
 
 export function setTimezone(timezone: string): Promise<User> {
   return apiClient.put<User>('/api/auth/timezone', { timezone })
+}
+
+export function setGoals(
+  dailyGoalHours: number | null,
+  weeklyGoalHours: number | null,
+): Promise<User> {
+  return apiClient.put<User>('/api/auth/goals', { dailyGoalHours, weeklyGoalHours })
 }

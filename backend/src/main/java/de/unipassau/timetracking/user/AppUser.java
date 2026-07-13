@@ -27,6 +27,10 @@ public class AppUser {
 
   @Column private String preferredTimezone;
 
+  @Column private Long dailyGoalHours;
+
+  @Column private Long weeklyGoalHours;
+
   protected AppUser() {}
 
   public AppUser(String email, String passwordHash) {
@@ -61,5 +65,21 @@ public class AppUser {
 
   public void setPreferredTimezone(String timezone) {
     this.preferredTimezone = timezone;
+  }
+
+  public Long getDailyGoalHours() {
+    return dailyGoalHours;
+  }
+
+  public void setDailyGoalHours(Long dailyGoalHours) {
+    this.dailyGoalHours = dailyGoalHours;
+  }
+
+  public Long getWeeklyGoalHours() {
+    return weeklyGoalHours;
+  }
+
+  public void setWeeklyGoalHours(Long weeklyGoalHours) {
+    this.weeklyGoalHours = weeklyGoalHours;
   }
 }

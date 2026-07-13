@@ -65,6 +65,27 @@ function flattenHierarchy(projects: Project[]): { project: Project; depth: numbe
   return result
 }
 
+function GoalBar({ label, used, goalHours }: { label: string; used: number; goalHours: number }) {
+  const goalSeconds = goalHours * 3600
+  const pct = Math.min(100, Math.round((used / goalSeconds) * 100))
+  const met = used >= goalSeconds
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-sm text-slate-700">
+        {label}: <span className="font-mono">{formatDuration(used)}</span> / {goalHours}h goal
+        {met && <span className="ml-2 text-xs font-medium text-emerald-600">Goal reached</span>}
+      </p>
+      <span className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <span
+          className="block h-full rounded-full bg-emerald-500"
+          style={{ width: `${pct}%` }}
+          aria-label={`${label} goal: ${pct}% reached`}
+        />
+      </span>
+    </div>
+  )
+}
+
 function TaskTable({ tasks, timezone }: { tasks: Task[]; timezone: string }) {
   return (
     <table className="w-full text-left text-sm">
@@ -117,11 +138,28 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
   const [periodError, setPeriodError] = useState<string | null>(null)
   const [loadingPeriod, setLoadingPeriod] = useState(false)
 
+  const [todaySeconds, setTodaySeconds] = useState(0)
+  const [weekSeconds, setWeekSeconds] = useState(0)
+
   useEffect(() => {
     listProjects()
       .then(setProjects)
       .catch(() => setProjectsError('Could not load projects.'))
   }, [projectsRefreshSignal])
+
+  useEffect(() => {
+    if (user?.dailyGoalHours == null && user?.weeklyGoalHours == null) {
+      return
+    }
+    const today = periodRange('day', timezone)
+    const week = periodRange('week', timezone)
+    listTasks(today.from, today.to)
+      .then((tasks) => setTodaySeconds(totalSecondsOf(tasks)))
+      .catch(() => setTodaySeconds(0))
+    listTasks(week.from, week.to)
+      .then((tasks) => setWeekSeconds(totalSecondsOf(tasks)))
+      .catch(() => setWeekSeconds(0))
+  }, [user?.dailyGoalHours, user?.weeklyGoalHours, timezone, projectsRefreshSignal])
 
   const orderedProjects = useMemo(() => flattenHierarchy(projects), [projects])
 
@@ -178,6 +216,18 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
   return (
     <section className="flex w-full max-w-2xl flex-col gap-6 rounded-lg bg-white p-8 shadow">
       <h2 className="text-lg font-semibold text-slate-900">Overview</h2>
+
+      {(user?.dailyGoalHours != null || user?.weeklyGoalHours != null) && (
+        <div className="flex flex-col gap-3">
+          <h3 className="text-sm font-semibold text-slate-900">Time goals</h3>
+          {user?.dailyGoalHours != null && (
+            <GoalBar label="Today" used={todaySeconds} goalHours={user.dailyGoalHours} />
+          )}
+          {user?.weeklyGoalHours != null && (
+            <GoalBar label="This week" used={weekSeconds} goalHours={user.weeklyGoalHours} />
+          )}
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold text-slate-900">By project</h3>

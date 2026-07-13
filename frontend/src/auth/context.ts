@@ -9,6 +9,7 @@ export interface AuthContextValue {
   logout: () => Promise<void>
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   setTimezone: (timezone: string) => Promise<void>
+  setGoals: (dailyGoalHours: number | null, weeklyGoalHours: number | null) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | undefined>(undefined)

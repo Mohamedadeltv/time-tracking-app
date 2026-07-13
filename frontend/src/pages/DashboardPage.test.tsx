@@ -162,4 +162,52 @@ describe('DashboardPage', () => {
 
     await waitFor(() => expect(screen.getByText('Unknown timezone: bad/tz')).toBeInTheDocument())
   })
+
+  it('saves time goals successfully', async () => {
+    vi.mocked(authApi.setGoals).mockResolvedValue({
+      id: 1,
+      email: 'a@example.com',
+      dailyGoalHours: 4,
+      weeklyGoalHours: 20,
+    })
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    await user.type(screen.getByLabelText('Daily goal (hours)'), '4')
+    await user.type(screen.getByLabelText('Weekly goal (hours)'), '20')
+    await user.click(screen.getByRole('button', { name: 'Save goals' }))
+
+    await waitFor(() => expect(screen.getByText('Goals saved.')).toBeInTheDocument())
+    expect(authApi.setGoals).toHaveBeenCalledWith(4, 20)
+  })
+
+  it('sends null for a goal field left blank', async () => {
+    vi.mocked(authApi.setGoals).mockResolvedValue({
+      id: 1,
+      email: 'a@example.com',
+      dailyGoalHours: 4,
+      weeklyGoalHours: null,
+    })
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    await user.type(screen.getByLabelText('Daily goal (hours)'), '4')
+    await user.click(screen.getByRole('button', { name: 'Save goals' }))
+
+    await waitFor(() => expect(authApi.setGoals).toHaveBeenCalledWith(4, null))
+  })
+
+  it('shows an error when saving goals fails', async () => {
+    vi.mocked(authApi.setGoals).mockRejectedValue(new Error('network down'))
+    const user = userEvent.setup()
+    renderDashboardPage()
+
+    await waitFor(() => screen.getByText('Hi, a@example.com'))
+    await user.type(screen.getByLabelText('Daily goal (hours)'), '4')
+    await user.click(screen.getByRole('button', { name: 'Save goals' }))
+
+    await waitFor(() => expect(screen.getByText('Could not save goals.')).toBeInTheDocument())
+  })
 })
