@@ -24,8 +24,8 @@ test('a task can be tagged, tags show up, and filtering by tag narrows the list'
   await addForm.getByRole('button', { name: 'Add task' }).click()
 
   await expect(page.getByText('Tagged entry')).toBeVisible()
-  await expect(page.getByText('work')).toBeVisible()
-  await expect(page.getByText('urgent')).toBeVisible()
+  await expect(page.getByText('work', { exact: true })).toBeVisible()
+  await expect(page.getByText('urgent', { exact: true })).toBeVisible()
 
   await addForm.getByLabel('Description').fill('Untagged entry')
   await addForm.getByLabel('Start').fill('2026-01-02T09:00')
@@ -34,7 +34,7 @@ test('a task can be tagged, tags show up, and filtering by tag narrows the list'
   await expect(page.getByText('Untagged entry')).toBeVisible()
 
   await page.getByLabel('Filter by tag').fill('work')
-  await expect(page.getByText('Tagged entry')).toBeVisible()
+  await expect(page.getByText('Tagged entry', { exact: true })).toBeVisible()
   await expect(page.getByText('Untagged entry')).not.toBeVisible()
 
   await page.getByRole('button', { name: 'Clear' }).click()
