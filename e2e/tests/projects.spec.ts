@@ -34,9 +34,11 @@ test('a project can be created, associated with a task, then unassigned, then de
   await expect(page.getByRole('cell', { name: 'Lecture' })).toBeVisible()
 
   await page.getByRole('button', { name: 'Edit' }).click()
-  const editForm = page.locator('form').filter({ has: page.getByRole('button', { name: 'Save' }) })
+  const editForm = page
+    .locator('form')
+    .filter({ has: page.getByRole('button', { name: 'Save', exact: true }) })
   await editForm.getByLabel('Lecture').uncheck()
-  await editForm.getByRole('button', { name: 'Save' }).click()
+  await editForm.getByRole('button', { name: 'Save', exact: true }).click()
 
   const taskRow = page.getByRole('row', { name: /Manual entry/ })
   await expect(taskRow.locator('td').nth(3)).toHaveText('—')
