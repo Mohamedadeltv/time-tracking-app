@@ -39,9 +39,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updated)
   }
 
+  async function setGoals(dailyGoalHours: number | null, weeklyGoalHours: number | null) {
+    const updated = await authApi.setGoals(dailyGoalHours, weeklyGoalHours)
+    setUser(updated)
+  }
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, register, login, logout, changePassword, setTimezone }}
+      value={{ user, loading, register, login, logout, changePassword, setTimezone, setGoals }}
     >
       {children}
     </AuthContext.Provider>

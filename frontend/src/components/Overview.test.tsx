@@ -7,16 +7,29 @@ import * as exportApi from '../api/export'
 import * as overviewApi from '../api/overview'
 import * as projectsApi from '../api/projects'
 import * as tasksApi from '../api/tasks'
+import { useAuth } from '../auth/useAuth'
+import type { User } from '../api/auth'
 
 vi.mock('../api/overview')
 vi.mock('../api/projects')
 vi.mock('../api/tasks')
-vi.mock('../auth/useAuth', () => ({
-  useAuth: () => ({ user: { id: 1, email: 'user@example.com', timezone: null } }),
-}))
+vi.mock('../auth/useAuth')
 vi.mock('../api/export', () => ({
   buildExportUrl: vi.fn(() => '/api/projects/1/export?format=csv'),
 }))
+
+function mockAuthUser(overrides: Partial<User> = {}) {
+  vi.mocked(useAuth).mockReturnValue({
+    user: { id: 1, email: 'user@example.com', timezone: null, ...overrides },
+    loading: false,
+    register: vi.fn(),
+    login: vi.fn(),
+    logout: vi.fn(),
+    changePassword: vi.fn(),
+    setTimezone: vi.fn(),
+    setGoals: vi.fn(),
+  })
+}
 
 function project(overrides: Partial<projectsApi.Project> = {}): projectsApi.Project {
   return {
@@ -57,6 +70,7 @@ function projectOverview(
 describe('Overview', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    mockAuthUser()
   })
 
   it('lists projects, including subprojects indented, in the project picker', async () => {
@@ -248,5 +262,41 @@ describe('Overview', () => {
       expect.any(String),
       expect.any(String),
     )
+  })
+
+  it('does not show time goals when the user has none set', async () => {
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
+
+    render(<Overview />)
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Overview' })).toBeInTheDocument())
+    expect(screen.queryByText('Time goals')).not.toBeInTheDocument()
+  })
+
+  it('shows progress toward the daily and weekly goals', async () => {
+    mockAuthUser({ dailyGoalHours: 4, weeklyGoalHours: 20 })
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([
+      task({ startTime: '2026-01-01T09:00:00Z', endTime: '2026-01-01T11:00:00Z' }),
+    ])
+
+    render(<Overview />)
+
+    await waitFor(() => expect(screen.getByText('Time goals')).toBeInTheDocument())
+    expect(screen.getByText(/Today:/)).toBeInTheDocument()
+    expect(screen.getByText(/This week:/)).toBeInTheDocument()
+    expect(screen.getAllByText('02:00:00').length).toBeGreaterThan(0)
+  })
+
+  it('shows only the daily goal bar when only a daily goal is set', async () => {
+    mockAuthUser({ dailyGoalHours: 4, weeklyGoalHours: null })
+    vi.mocked(projectsApi.listProjects).mockResolvedValue([])
+    vi.mocked(tasksApi.listTasks).mockResolvedValue([])
+
+    render(<Overview />)
+
+    await waitFor(() => expect(screen.getByText('Time goals')).toBeInTheDocument())
+    expect(screen.getByText(/Today:/)).toBeInTheDocument()
+    expect(screen.queryByText(/This week:/)).not.toBeInTheDocument()
   })
 })

@@ -4,6 +4,7 @@ import de.unipassau.timetracking.security.AppUserPrincipal;
 import de.unipassau.timetracking.user.dto.ChangePasswordRequest;
 import de.unipassau.timetracking.user.dto.LoginRequest;
 import de.unipassau.timetracking.user.dto.RegisterRequest;
+import de.unipassau.timetracking.user.dto.SetGoalsRequest;
 import de.unipassau.timetracking.user.dto.SetTimezoneRequest;
 import de.unipassau.timetracking.user.dto.UserResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -107,6 +108,17 @@ public class AuthController {
     AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
     AppUser user = appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
     user.setPreferredTimezone(request.timezone());
+    appUserRepository.save(user);
+    return ResponseEntity.ok(UserResponse.from(user));
+  }
+
+  @PutMapping("/goals")
+  public ResponseEntity<UserResponse> setGoals(
+      Authentication authentication, @Valid @RequestBody SetGoalsRequest request) {
+    AppUserPrincipal principal = (AppUserPrincipal) authentication.getPrincipal();
+    AppUser user = appUserRepository.findByEmail(principal.getEmail()).orElseThrow();
+    user.setDailyGoalHours(request.dailyGoalHours());
+    user.setWeeklyGoalHours(request.weeklyGoalHours());
     appUserRepository.save(user);
     return ResponseEntity.ok(UserResponse.from(user));
   }

@@ -8,7 +8,7 @@ import { ProjectManager } from '../components/ProjectManager'
 import { Overview } from '../components/Overview'
 
 export function DashboardPage() {
-  const { user, logout, changePassword, setTimezone } = useAuth()
+  const { user, logout, changePassword, setTimezone, setGoals } = useAuth()
   const navigate = useNavigate()
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -20,6 +20,10 @@ export function DashboardPage() {
   const [timezoneInput, setTimezoneInput] = useState(user?.timezone ?? '')
   const [timezoneError, setTimezoneError] = useState<string | null>(null)
   const [timezoneSaved, setTimezoneSaved] = useState(false)
+  const [dailyGoalInput, setDailyGoalInput] = useState(user?.dailyGoalHours?.toString() ?? '')
+  const [weeklyGoalInput, setWeeklyGoalInput] = useState(user?.weeklyGoalHours?.toString() ?? '')
+  const [goalsError, setGoalsError] = useState<string | null>(null)
+  const [goalsSaved, setGoalsSaved] = useState(false)
 
   async function handleLogout() {
     await logout()
@@ -35,6 +39,20 @@ export function DashboardPage() {
       setTimezoneSaved(true)
     } catch (err) {
       setTimezoneError(err instanceof ApiError ? err.message : 'Could not save timezone.')
+    }
+  }
+
+  async function handleSetGoals(event: FormEvent) {
+    event.preventDefault()
+    setGoalsError(null)
+    setGoalsSaved(false)
+    try {
+      const daily = dailyGoalInput.trim() === '' ? null : Number(dailyGoalInput)
+      const weekly = weeklyGoalInput.trim() === '' ? null : Number(weeklyGoalInput)
+      await setGoals(daily, weekly)
+      setGoalsSaved(true)
+    } catch (err) {
+      setGoalsError(err instanceof ApiError ? err.message : 'Could not save goals.')
     }
   }
 
@@ -104,6 +122,44 @@ export function DashboardPage() {
           className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
         >
           Apply timezone
+        </button>
+      </form>
+
+      <form
+        onSubmit={handleSetGoals}
+        className="flex w-full max-w-sm flex-col gap-4 rounded-lg bg-white p-8 shadow"
+      >
+        <h2 className="text-lg font-semibold text-slate-900">Time goals</h2>
+        <p className="text-xs text-slate-500">Leave a field blank to clear that goal.</p>
+        {goalsError && <p className="text-sm text-red-600">{goalsError}</p>}
+        {goalsSaved && <p className="text-sm text-green-700">Goals saved.</p>}
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
+          Daily goal (hours)
+          <input
+            type="number"
+            min={1}
+            aria-label="Daily goal (hours)"
+            value={dailyGoalInput}
+            onChange={(e) => setDailyGoalInput(e.target.value)}
+            className="rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm text-slate-700">
+          Weekly goal (hours)
+          <input
+            type="number"
+            min={1}
+            aria-label="Weekly goal (hours)"
+            value={weeklyGoalInput}
+            onChange={(e) => setWeeklyGoalInput(e.target.value)}
+            className="rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <button
+          type="submit"
+          className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+        >
+          Save goals
         </button>
       </form>
 
