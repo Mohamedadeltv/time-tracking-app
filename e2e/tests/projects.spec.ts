@@ -38,7 +38,8 @@ test('a project can be created, associated with a task, then unassigned, then de
   await editForm.getByLabel('Lecture').uncheck()
   await editForm.getByRole('button', { name: 'Save' }).click()
 
-  await expect(page.getByRole('cell', { name: '—' })).toBeVisible()
+  const taskRow = page.getByRole('row', { name: /Manual entry/ })
+  await expect(taskRow.locator('td').nth(3)).toHaveText('—')
   await expect(page.getByText('Manual entry')).toBeVisible()
 
   page.once('dialog', (dialog) => dialog.accept())

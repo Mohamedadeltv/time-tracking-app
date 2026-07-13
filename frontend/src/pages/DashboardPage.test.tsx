@@ -49,6 +49,7 @@ describe('DashboardPage', () => {
       endTime: null,
       running: true,
       projects: [],
+      tags: [],
     })
     const user = userEvent.setup()
     renderDashboardPage()
@@ -69,6 +70,7 @@ describe('DashboardPage', () => {
       endTime: '2026-01-01T10:00:00Z',
       running: false,
       projects: [],
+      tags: [],
     })
     const user = userEvent.setup()
     renderDashboardPage()

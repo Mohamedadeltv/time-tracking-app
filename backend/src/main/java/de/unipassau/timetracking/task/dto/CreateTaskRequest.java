@@ -9,4 +9,5 @@ public record CreateTaskRequest(
     @Size(max = 500) String description,
     @NotNull Instant startTime,
     @NotNull Instant endTime,
-    Set<Long> projectIds) {}
+    Set<Long> projectIds,
+    Set<@Size(max = 50) String> tags) {}

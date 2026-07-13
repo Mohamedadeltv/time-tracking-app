@@ -12,7 +12,8 @@ public record TaskResponse(
     Instant startTime,
     Instant endTime,
     boolean running,
-    List<ProjectSummary> projects) {
+    List<ProjectSummary> projects,
+    List<String> tags) {
 
   public static TaskResponse from(Task task) {
     return new TaskResponse(
@@ -24,6 +25,7 @@ public record TaskResponse(
         task.getProjects().stream()
             .map(ProjectSummary::from)
             .sorted(Comparator.comparing(ProjectSummary::name))
-            .toList());
+            .toList(),
+        task.getTags().stream().sorted().toList());
   }
 }

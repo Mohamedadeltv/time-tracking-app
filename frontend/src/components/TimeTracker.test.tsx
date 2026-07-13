@@ -15,6 +15,7 @@ function runningTask(overrides: Partial<tasksApi.Task> = {}): tasksApi.Task {
     endTime: null,
     running: true,
     projects: [],
+    tags: [],
     ...overrides,
   }
 }
