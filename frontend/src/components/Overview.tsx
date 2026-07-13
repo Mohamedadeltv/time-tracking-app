@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { ApiError } from '../api/client'
 import { buildExportUrl, type ExportFormat } from '../api/export'
 import { getProjectOverview, type ProjectOverview } from '../api/overview'
-import { listProjects, type Project } from '../api/projects'
+import { listMembers, listProjects, type Member, type Project } from '../api/projects'
 import { listTasks, type Task } from '../api/tasks'
 import { useAuth } from '../auth/useAuth'
 import { formatDuration } from '../utils/duration'
@@ -122,6 +122,8 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
   const [projectsError, setProjectsError] = useState<string | null>(null)
 
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null)
+  const [members, setMembers] = useState<Member[]>([])
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
   const [fromInput, setFromInput] = useState('')
   const [toInput, setToInput] = useState('')
   const [projectOverview, setProjectOverview] = useState<ProjectOverview | null>(null)
@@ -146,6 +148,11 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
       .then(setProjects)
       .catch(() => setProjectsError('Could not load projects.'))
   }, [projectsRefreshSignal])
+
+  useEffect(() => {
+    const load = selectedProjectId == null ? Promise.resolve([]) : listMembers(selectedProjectId)
+    load.then(setMembers).catch(() => setMembers([]))
+  }, [selectedProjectId])
 
   useEffect(() => {
     if (user?.dailyGoalHours == null && user?.weeklyGoalHours == null) {
@@ -173,7 +180,12 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
     try {
       const from = fromInput ? new Date(fromInput).toISOString() : undefined
       const to = toInput ? new Date(toInput).toISOString() : undefined
-      const overview = await getProjectOverview(selectedProjectId, from, to)
+      const overview = await getProjectOverview(
+        selectedProjectId,
+        from,
+        to,
+        selectedUserId ?? undefined,
+      )
       setProjectOverview(overview)
     } catch (err) {
       setProjectOverviewError(
@@ -240,9 +252,10 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
               required
               aria-label="Project"
               value={selectedProjectId ?? ''}
-              onChange={(e) =>
+              onChange={(e) => {
                 setSelectedProjectId(e.target.value ? Number(e.target.value) : null)
-              }
+                setSelectedUserId(null)
+              }}
               className="rounded border border-slate-300 px-2 py-1"
             >
               <option value="">Select a project</option>
@@ -272,6 +285,26 @@ export function Overview({ projectsRefreshSignal }: { projectsRefreshSignal?: nu
               className="rounded border border-slate-300 px-2 py-1"
             />
           </label>
+          {members.length > 0 && (
+            <label className="flex flex-col gap-1 text-sm text-slate-700">
+              Filter by user
+              <select
+                aria-label="Filter by user"
+                value={selectedUserId ?? ''}
+                onChange={(e) =>
+                  setSelectedUserId(e.target.value ? Number(e.target.value) : null)
+                }
+                className="rounded border border-slate-300 px-2 py-1"
+              >
+                <option value="">All members</option>
+                {members.map((member) => (
+                  <option key={member.userId} value={member.userId}>
+                    {member.email}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <button
             type="submit"
             className="rounded bg-slate-900 px-3 py-2 text-sm font-medium text-white"
