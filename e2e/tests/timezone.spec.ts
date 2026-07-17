@@ -52,7 +52,7 @@ async function setTimezone(page: Page, timezone: string) {
   const timezoneForm = page
     .locator('form')
     .filter({ has: page.getByRole('button', { name: 'Apply timezone' }) })
-  await timezoneForm.getByLabel('Timezone').fill(timezone)
+  await timezoneForm.getByLabel('Timezone').selectOption(timezone)
   await timezoneForm.getByRole('button', { name: 'Apply timezone' }).click()
   await expect(timezoneForm.getByText('Timezone saved.')).toBeVisible()
 }

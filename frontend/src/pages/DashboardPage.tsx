@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../api/client'
@@ -6,6 +6,19 @@ import { TimeTracker } from '../components/TimeTracker'
 import { TaskList } from '../components/TaskList'
 import { ProjectManager } from '../components/ProjectManager'
 import { Overview } from '../components/Overview'
+
+// Falls back to a short, common list if the runtime doesn't support Intl.supportedValuesOf
+// (all evergreen browsers, including Firefox 100+, do).
+const FALLBACK_TIMEZONES = ['UTC', 'Europe/Berlin', 'Europe/London', 'America/New_York', 'Asia/Tokyo']
+
+function listTimezones(): string[] {
+  const supportedValuesOf = (Intl as unknown as { supportedValuesOf?: (key: string) => string[] })
+    .supportedValuesOf
+  if (typeof supportedValuesOf === 'function') {
+    return supportedValuesOf('timeZone')
+  }
+  return FALLBACK_TIMEZONES
+}
 
 export function DashboardPage() {
   const { user, logout, changePassword, setTimezone, setGoals } = useAuth()
@@ -17,7 +30,10 @@ export function DashboardPage() {
   const [submitting, setSubmitting] = useState(false)
   const [taskListRefresh, setTaskListRefresh] = useState(0)
   const [projectManagerRefresh, setProjectManagerRefresh] = useState(0)
-  const [timezoneInput, setTimezoneInput] = useState(user?.timezone ?? '')
+  const timezones = useMemo(() => listTimezones(), [])
+  const [timezoneInput, setTimezoneInput] = useState(
+    user?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
+  )
   const [timezoneError, setTimezoneError] = useState<string | null>(null)
   const [timezoneSaved, setTimezoneSaved] = useState(false)
   const [dailyGoalInput, setDailyGoalInput] = useState(user?.dailyGoalHours?.toString() ?? '')
@@ -107,15 +123,19 @@ export function DashboardPage() {
         {timezoneError && <p className="text-sm text-red-600">{timezoneError}</p>}
         {timezoneSaved && <p className="text-sm text-green-700">Timezone saved.</p>}
         <label className="flex flex-col gap-1 text-sm text-slate-700">
-          IANA timezone (e.g. Europe/Berlin)
-          <input
-            type="text"
+          Timezone
+          <select
             aria-label="Timezone"
             value={timezoneInput}
             onChange={(e) => setTimezoneInput(e.target.value)}
-            placeholder="Europe/Berlin"
             className="rounded border border-slate-300 px-3 py-2"
-          />
+          >
+            {timezones.map((tz) => (
+              <option key={tz} value={tz}>
+                {tz}
+              </option>
+            ))}
+          </select>
         </label>
         <button
           type="submit"
