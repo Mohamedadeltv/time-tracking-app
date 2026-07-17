@@ -11,7 +11,7 @@ permissions:
 jobs:
   backend:
     name: Backend (build, test, coverage, format)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container: eclipse-temurin:21-jdk
     defaults:
       run:
@@ -30,13 +30,9 @@ jobs:
           name: backend-coverage
           path: backend/target/site/jacoco
 
-      - name: Fix workspace permissions
-        if: always()
-        run: chmod -R a+w $GITHUB_WORKSPACE
-
   frontend:
     name: Frontend (lint, type-check, test, coverage)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     container: node:24
     defaults:
       run:
@@ -64,13 +60,9 @@ jobs:
           name: frontend-coverage
           path: frontend/coverage
 
-      - name: Fix workspace permissions
-        if: always()
-        run: chmod -R a+w $GITHUB_WORKSPACE
-
   e2e:
     name: System tests (Playwright, Firefox)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
