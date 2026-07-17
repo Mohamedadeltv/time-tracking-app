@@ -21,6 +21,9 @@ import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.Comparator;
 import java.util.Deque;
@@ -206,7 +209,11 @@ public class ProjectController {
             .sorted(Comparator.comparing(Task::getStartTime))
             .toList();
 
-    List<ExportRow> rows = tasks.stream().map(this::toExportRow).toList();
+    ZoneId zone =
+        user.getPreferredTimezone() != null
+            ? ZoneId.of(user.getPreferredTimezone())
+            : ZoneOffset.UTC;
+    List<ExportRow> rows = tasks.stream().map(task -> toExportRow(task, zone)).toList();
     String slug = project.getName().replaceAll("[^a-zA-Z0-9_-]", "_");
 
     if ("json".equalsIgnoreCase(format)) {
@@ -282,19 +289,23 @@ public class ProjectController {
         .toList();
   }
 
-  private ExportRow toExportRow(Task task) {
+  private ExportRow toExportRow(Task task, ZoneId zone) {
     List<String> projectNames = task.getProjects().stream().map(Project::getName).sorted().toList();
     long durationSeconds =
         task.getEndTime() != null
             ? Duration.between(task.getStartTime(), task.getEndTime()).getSeconds()
             : 0;
     return new ExportRow(
-        task.getStartTime().toString(),
-        task.getEndTime() != null ? task.getEndTime().toString() : "",
+        formatInZone(task.getStartTime(), zone),
+        task.getEndTime() != null ? formatInZone(task.getEndTime(), zone) : "",
         durationSeconds,
         task.getDescription() != null ? task.getDescription() : "",
         projectNames,
         task.getOwner().getEmail());
+  }
+
+  private String formatInZone(Instant instant, ZoneId zone) {
+    return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(instant.atZone(zone));
   }
 
   private String buildCsv(List<ExportRow> rows) {

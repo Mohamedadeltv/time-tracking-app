@@ -4,12 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import java.util.UUID;
@@ -87,6 +90,21 @@ class ProjectExportTest {
     return objectMapper.writeValueAsString(body);
   }
 
+  private void setTimezone(MockHttpSession session, String timezone) throws Exception {
+    mockMvc
+        .perform(
+            put("/api/auth/timezone")
+                .with(csrf())
+                .session(session)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("timezone", timezone))))
+        .andExpect(status().isOk());
+  }
+
+  private String formatInZone(Instant instant, String timezone) {
+    return DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(instant.atZone(ZoneId.of(timezone)));
+  }
+
   @Test
   void csvExportContainsHeaderAndTaskRows() throws Exception {
     MockHttpSession session = registerAndGetSession(uniqueEmail());
@@ -106,9 +124,32 @@ class ProjectExportTest {
 
     String csv = result.getResponse().getContentAsString();
     assertThat(csv).startsWith("startTime,endTime,durationSeconds,description,projects,user");
-    assertThat(csv).contains(start.toString());
+    // No preferred timezone was set, so the export defaults to UTC.
+    assertThat(csv).contains(formatInZone(start, "UTC"));
     assertThat(csv).contains("Write docs");
     assertThat(csv).contains("3600");
+  }
+
+  @Test
+  void exportFormatsTimestampsInTheUsersPreferredTimezone() throws Exception {
+    MockHttpSession session = registerAndGetSession(uniqueEmail());
+    setTimezone(session, "Pacific/Kiritimati"); // fixed UTC+14, no DST, unambiguous
+    long projectId = createProject(session, "Zoned Export " + UUID.randomUUID());
+    Instant start = Instant.parse("2026-06-15T12:00:00Z");
+    Instant end = start.plus(1, ChronoUnit.HOURS);
+    createTask(session, "Zoned task", start, end, projectId);
+
+    MvcResult result =
+        mockMvc
+            .perform(get("/api/projects/" + projectId + "/export?format=json").session(session))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    JsonNode rows = objectMapper.readTree(result.getResponse().getContentAsString());
+    assertThat(rows.get(0).get("startTime").asText())
+        .isEqualTo(formatInZone(start, "Pacific/Kiritimati"));
+    assertThat(rows.get(0).get("startTime").asText()).contains("+14:00");
+    assertThat(rows.get(0).get("startTime").asText()).doesNotContain("Z");
   }
 
   @Test
