@@ -1,5 +1,3 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/TuXr0YKT)
-
 # Time Tracking
 
 A full-stack time tracking app: track time spent on tasks, organise tasks under
@@ -130,7 +128,7 @@ backend/                  Spring Boot REST API + JPA + Postgres
 frontend/                 React + TypeScript + Vite + Tailwind
 e2e/                      Playwright system tests (Firefox) against the Docker Compose stack
 Dockerfile                multi-stage build: frontend -> backend jar -> runtime image
-docker-compose.yml        app + Postgres, for local/grading deployment
+docker-compose.yml        app + Postgres, for local deployment
 .github/workflows/ci.yml  CI: backend test+coverage+format, frontend lint+build+test+coverage, E2E
 ```
 
