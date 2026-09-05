@@ -129,7 +129,6 @@ docker compose logs -f app          # tail backend logs
 backend/                  Spring Boot REST API + JPA + Postgres
 frontend/                 React + TypeScript + Vite + Tailwind
 e2e/                      Playwright system tests (Firefox) against the Docker Compose stack
-report/                   Written project report
 Dockerfile                multi-stage build: frontend -> backend jar -> runtime image
 docker-compose.yml        app + Postgres, for local/grading deployment
 .github/workflows/ci.yml  CI: backend test+coverage+format, frontend lint+build+test+coverage, E2E
